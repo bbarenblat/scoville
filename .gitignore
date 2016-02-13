@@ -1,0 +1,13 @@
+# Editor backup files
+*~
+\#*
+.\#*
+
+# CMake
+Debug/
+Release/
+
+
+# Local Variables:
+# mode: conf
+# End:
