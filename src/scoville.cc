@@ -1,117 +1,33 @@
-// Copyright 2016 Benjamin Barenblat
+// Copyright (C) 2001-2007  Miklos Szeredi <miklos@szeredi.hu>
+// Copyright (C) 2011  Sebastian Pipping <sebastian@pipping.org>
+// Copyright (C) 2016  Benjamin Barenblat <benjamin@barenblat.name>
 //
-// Licensed under the Apache License, Version 2.0 (the "License"); you may not
-// use this file except in compliance with the License.  You may obtain a copy
-// of the License at
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+// details.
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
-// License for the specific language governing permissions and limitations under
-// the License.
-
-#include <array>
-#include <cstdlib>
-#include <sstream>
-#include <stdexcept>
-#include <string>
+// You should have received a copy of the GNU General Public License along with
+// this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <glog/logging.h>
 
+#include "operations.h"
+
 namespace {
-
-class EncodingFailure : public std::logic_error {
- public:
-  using std::logic_error::logic_error;
-};
-
-class DecodingFailure : public std::logic_error {
- public:
-  using std::logic_error::logic_error;
-};
-
-void WriteAsciiAsHex(const char c, std::ostringstream* const out) {
-  if (1 < sizeof(c) && 0x100 <= c) {
-    // Not ASCII!
-    throw EncodingFailure("could not encode non-ASCII character '" +
-                          std::string(1, c) + "'");
-  }
-  *out << std::hex << static_cast<int>(c);
-}
-
-char ReadHexAsAscii(std::istringstream* const in) {
-  std::array<char, 3> hex_str;
-  in->get(hex_str.data(), hex_str.size());
-  char* decoded_end;
-  const char result =
-      static_cast<char>(std::strtol(hex_str.data(), &decoded_end, 16));
-  if (decoded_end == hex_str.data()) {
-    throw DecodingFailure("could not decode invalid hex");
-  }
-  return result;
-}
-
-bool IsVfatBadCharacter(const char c) noexcept {
-  return (0 <= c && c < 0x20) || c == '*' || c == '?' || c == '<' || c == '>' ||
-         c == '|' || c == '"' || c == ':' || c == '/' || c == '\\';
-}
-
-void Encode(std::istringstream* const in, std::ostringstream* const out) {
-  char c;
-  while (!in->get(c).eof()) {
-    if (IsVfatBadCharacter(c)) {
-      *out << '%';
-      WriteAsciiAsHex(c, out);
-    } else if (c == '%') {
-      *out << "%%";
-    } else {
-      *out << c;
-    }
-  }
-}
-
-void Decode(std::istringstream* const in, std::ostringstream* const out) {
-  char c;
-  while (!in->get(c).eof()) {
-    if (c == '%') {
-      if (in->peek() == '%') {
-        in->ignore();
-        *out << "%";
-      } else {
-        *out << ReadHexAsAscii(in);
-      }
-    } else {
-      *out << c;
-    }
-  }
-}
 
 }  // namespace
 
-int main(int, char* const argv[]) {
+int main(const int argc, char* argv[]) {
   FLAGS_logtostderr = true;
   google::InstallFailureSignalHandler();
   google::InitGoogleLogging(argv[0]);
 
-  LOG(INFO) << "Got        " << argv[1];
-
-  std::string result;
-  {
-    std::istringstream in(argv[1]);
-    std::ostringstream out;
-    Encode(&in, &out);
-    result = out.str();
-  }
-  LOG(INFO) << "Encoded to " << result;
-
-  {
-    std::istringstream in(result);
-    std::ostringstream out;
-    Decode(&in, &out);
-    result = out.str();
-  }
-  LOG(INFO) << "Decoded to " << result;
-  return 0;
+  const fuse_operations operations = scoville::FuseOperations();
+  return fuse_main(argc, argv, &operations, nullptr);
 }

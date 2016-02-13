@@ -32,6 +32,8 @@ set(
 
 add_executable(
   scoville
+  encoding.cc
+  operations.cc
   scoville.cc
 )
 target_include_directories(
