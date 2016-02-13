@@ -38,8 +38,8 @@ add_executable(
 )
 target_include_directories(
   scoville
-  PRIVATE ${FUSE_INCLUDE_DIRS}
-  PRIVATE ${GLOG_INCLUDE_DIRS}
+  SYSTEM PRIVATE ${FUSE_INCLUDE_DIRS}
+  SYSTEM PRIVATE ${GLOG_INCLUDE_DIRS}
 )
 target_link_libraries(
   scoville

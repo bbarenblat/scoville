@@ -15,13 +15,8 @@
 #ifndef OPERATIONS_H_
 #define OPERATIONS_H_
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
-#pragma clang diagnostic ignored "-Wdocumentation"
-#pragma clang diagnostic ignored "-Wpadded"
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
-#pragma clang diagnostic pop
 
 namespace scoville {
 

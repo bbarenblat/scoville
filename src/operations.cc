@@ -19,14 +19,8 @@
 
 #include <cerrno>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
-#pragma clang diagnostic ignored "-Wdocumentation"
-#pragma clang diagnostic ignored "-Wpadded"
-#pragma clang diagnostic ignored "-Wunused-macros"
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
-#pragma clang diagnostic pop
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
