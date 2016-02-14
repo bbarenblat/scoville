@@ -19,10 +19,6 @@
 
 #include "operations.h"
 
-namespace {
-
-}  // namespace
-
 int main(const int argc, char* argv[]) {
   FLAGS_logtostderr = true;
   google::InstallFailureSignalHandler();
