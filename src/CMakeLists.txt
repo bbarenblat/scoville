@@ -15,34 +15,41 @@
 include(FindPkgConfig)
 
 pkg_check_modules(FUSE REQUIRED fuse)
+pkg_check_modules(GFLAGS REQUIRED libgflags)
 pkg_check_modules(GLOG REQUIRED libglog)
 
 link_directories(
   ${FUSE_LIBRARY_DIRS}
+  ${GFLAGS_LIBRARY_DIRS}
   ${GLOG_LIBRARY_DIRS}
 )
-set(
-  CMAKE_CXX_FLAGS
-  "${CMAKE_CXX_FLAGS} ${FUSE_CFLAGS_OTHER} ${GLOG_CFLAGS_OTHER}"
-)
-set(
-  CMAKE_EXE_LINKER_FLAGS
-  "${CMAKE_EXE_LINKER_FLAGS} ${FUSE_LDFLAGS_OTHER} ${GLOG_LDFLAGS_OTHER}"
-)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FUSE_CFLAGS_OTHER}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GFLAGS_CFLAGS_OTHER}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GLOG_CFLAGS_OTHER}")
+
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${FUSE_LDFLAGS_OTHER}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GFLAGS_LDFLAGS_OTHER}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GLOG_LDFLAGS_OTHER}")
 
 add_executable(
   scoville
   encoding.cc
   operations.cc
   scoville.cc
+  utility.cc
 )
+
 target_include_directories(
   scoville
   SYSTEM PRIVATE ${FUSE_INCLUDE_DIRS}
+  SYSTEM PRIVATE ${GFLAGS_INCLUDE_DIRS}
   SYSTEM PRIVATE ${GLOG_INCLUDE_DIRS}
 )
+
 target_link_libraries(
   scoville
   ${FUSE_LIBRARIES}
+  ${GFLAGS_LIBRARIES}
   ${GLOG_LIBRARIES}
 )

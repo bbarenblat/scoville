@@ -12,16 +12,33 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#ifndef OPERATIONS_H_
-#define OPERATIONS_H_
+#define _POSIX_C_SOURCE 201502L
+#undef _GNU_SOURCE
 
-#define FUSE_USE_VERSION 26
-#include <fuse.h>
+#include "utility.h"
+
+#include <string.h>
+
+#include <cerrno>
+#include <string>
+#include <vector>
+
+#include <glog/logging.h>
 
 namespace scoville {
 
-fuse_operations FuseOperations(int root_fd);
+std::string ErrnoText() {
+  std::vector<char> text(64);
+  int strerror_result;
+  while ((strerror_result = strerror_r(errno, text.data(), text.size())) ==
+         ERANGE) {
+    VLOG(1) << "ErrnoText doubling message size from " << text.size();
+    text.resize(text.size() * 2);
+  }
+  if (strerror_result != 0) {
+    return "(could not generate error message)";
+  }
+  return std::string(text.begin(), text.end());
+}
 
 }  // namespace scoville
-
-#endif  // OPERATIONS_H_

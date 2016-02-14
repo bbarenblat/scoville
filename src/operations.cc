@@ -33,9 +33,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "utility.h"
+
 namespace scoville {
 
 namespace {
+
+int root_fd_;
 
 struct Directory {
   DIR* fd;
@@ -75,6 +79,8 @@ void* Initialize(fuse_conn_info*) {
 
 void Destroy(void*) {
   LOG(INFO) << "destroy";
+  LOG_IF(ERROR, close(root_fd_) == -1) << "could not close root FD: "
+                                       << ErrnoText();
 }
 
 int Getattr(const char* const path, struct stat* output) {
@@ -153,7 +159,9 @@ int Releasedir(const char*, fuse_file_info* const file_info) {
 
 }  // namespace
 
-fuse_operations FuseOperations() {
+fuse_operations FuseOperations(const int root_fd) {
+  root_fd_ = root_fd;
+
   fuse_operations result;
 
   result.flag_nullpath_ok = true;

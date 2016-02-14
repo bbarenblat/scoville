@@ -12,16 +12,15 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#ifndef OPERATIONS_H_
-#define OPERATIONS_H_
+#ifndef UTILITY_H_
+#define UTILITY_H_
 
-#define FUSE_USE_VERSION 26
-#include <fuse.h>
+#include <string>
 
 namespace scoville {
 
-fuse_operations FuseOperations(int root_fd);
+std::string ErrnoText();
 
 }  // namespace scoville
 
-#endif  // OPERATIONS_H_
+#endif  // UTILITY_H_
