@@ -72,6 +72,13 @@ mode_t DirectoryTypeToFileType(const unsigned char type) {
   }
 }
 
+#define RETURN_ON_ERROR(call) \
+  if ((call) == -1) {         \
+    return -errno;            \
+  }                           \
+  do {                        \
+  } while (false)
+
 void* Initialize(fuse_conn_info*) {
   LOG(INFO) << "initialize";
   return nullptr;
@@ -85,9 +92,21 @@ void Destroy(void*) {
 
 int Getattr(const char* const path, struct stat* output) {
   LOG(INFO) << "getattr(" << path << ")";
-  if (lstat(path, output) == -1) {
-    return -errno;
+
+  if (path[0] == '\0') {
+    LOG(ERROR) << "getattr called on path not starting with /";
+    return -ENOENT;
   }
+
+  if (strcmp(path, "/") == 0) {
+    // They're asking for information about the mount point.
+    RETURN_ON_ERROR(fstat(root_fd_, output));
+    return 0;
+  }
+
+  // Trim the leading slash so fstatat will treat it relative to root_fd_.
+  LOG(INFO) << "getattr: trimming leading slash";
+  RETURN_ON_ERROR(fstatat(root_fd_, path + 1, output, AT_SYMLINK_NOFOLLOW));
   return 0;
 }
 
@@ -156,6 +175,8 @@ int Releasedir(const char*, fuse_file_info* const file_info) {
   delete directory;
   return 0;
 }
+
+#undef RETURN_ON_ERROR
 
 }  // namespace
 
