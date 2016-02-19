@@ -15,15 +15,13 @@
 // this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <iostream>
+#include <memory>
 
-#include <fcntl.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include "operations.h"
-#include "utility.h"
+#include "posix_extras.h"
 
 constexpr char kUsage[] = R"(allow forbidden characters on VFAT file systems
 
@@ -35,15 +33,17 @@ int main(int argc, char* argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
+  // Open an FD to the underlying file system so we can still do operations on
+  // it while it's overlayed.
+  std::unique_ptr<scoville::File> root;
   const char* const root_path = argv[argc - 1];
-  int root_fd;
-  if ((root_fd = open(root_path, O_DIRECTORY)) == -1) {
-    std::cerr << "scoville: bad mount point `" << root_path
-              << "': " << scoville::ErrnoText();
-    std::exit(EXIT_FAILURE);
+  try {
+    root.reset(new scoville::File(root_path, O_DIRECTORY));
+  } catch (const scoville::IoError& e) {
+    LOG(FATAL) << "scoville: bad mount point `" << root_path
+               << "': " << e.what();
   }
-  LOG(INFO) << "overlaying " << root_path;
-
-  const fuse_operations operations = scoville::FuseOperations(root_fd);
+  LOG(INFO) << "overlaying " << root->path();
+  const fuse_operations operations = scoville::FuseOperations(root.get());
   return fuse_main(argc, argv, &operations, nullptr);
 }

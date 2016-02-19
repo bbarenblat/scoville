@@ -18,9 +18,11 @@
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
 
+#include "posix_extras.h"
+
 namespace scoville {
 
-fuse_operations FuseOperations(int root_fd);
+fuse_operations FuseOperations(File* root);
 
 }  // namespace scoville
 

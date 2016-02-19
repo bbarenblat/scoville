@@ -36,8 +36,8 @@ add_executable(
   scoville
   encoding.cc
   operations.cc
+  posix_extras.cc
   scoville.cc
-  utility.cc
 )
 
 target_include_directories(

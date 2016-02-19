@@ -33,13 +33,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "utility.h"
+#include "posix_extras.h"
 
 namespace scoville {
 
 namespace {
 
-int root_fd_;
+// Pointer to the directory underlying the mount point.
+File* root_;
 
 struct Directory {
   DIR* fd;
@@ -72,25 +73,14 @@ mode_t DirectoryTypeToFileType(const unsigned char type) {
   }
 }
 
-#define RETURN_ON_ERROR(call) \
-  if ((call) == -1) {         \
-    return -errno;            \
-  }                           \
-  do {                        \
-  } while (false)
-
 void* Initialize(fuse_conn_info*) {
   LOG(INFO) << "initialize";
   return nullptr;
 }
 
-void Destroy(void*) {
-  LOG(INFO) << "destroy";
-  LOG_IF(ERROR, close(root_fd_) == -1) << "could not close root FD: "
-                                       << ErrnoText();
-}
+void Destroy(void*) { LOG(INFO) << "destroy"; }
 
-int Getattr(const char* const path, struct stat* output) {
+int Getattr(const char* const path, struct stat* output) noexcept {
   LOG(INFO) << "getattr(" << path << ")";
 
   if (path[0] == '\0') {
@@ -98,16 +88,20 @@ int Getattr(const char* const path, struct stat* output) {
     return -ENOENT;
   }
 
-  if (strcmp(path, "/") == 0) {
-    // They're asking for information about the mount point.
-    RETURN_ON_ERROR(fstat(root_fd_, output));
-    return 0;
-  }
+  try {
+    if (strcmp(path, "/") == 0) {
+      // They're asking for information about the mount point.
+      *output = root_->Stat();
+      return 0;
+    }
 
-  // Trim the leading slash so fstatat will treat it relative to root_fd_.
-  LOG(INFO) << "getattr: trimming leading slash";
-  RETURN_ON_ERROR(fstatat(root_fd_, path + 1, output, AT_SYMLINK_NOFOLLOW));
-  return 0;
+    // Trim the leading slash so LinkStatAt will treat it relative to root_.
+    LOG(INFO) << "getattr: trimming leading slash";
+    *output = root_->LinkStatAt(path + 1);
+    return 0;
+  } catch (const IoError& e) {
+    return -e.number();
+  }
 }
 
 int Opendir(const char* const path, fuse_file_info* const file_info) {
@@ -176,12 +170,10 @@ int Releasedir(const char*, fuse_file_info* const file_info) {
   return 0;
 }
 
-#undef RETURN_ON_ERROR
-
 }  // namespace
 
-fuse_operations FuseOperations(const int root_fd) {
-  root_fd_ = root_fd;
+fuse_operations FuseOperations(File* const root) {
+  root_ = root;
 
   fuse_operations result;
 
