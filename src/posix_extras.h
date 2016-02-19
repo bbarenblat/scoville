@@ -58,9 +58,11 @@ class File {
   struct stat LinkStatAt(const char* path) const;
 
  private:
-  File(File&) = delete;
+  File(const File&) = delete;
+  File(File&&) = delete;
 
-  void operator=(File) = delete;
+  void operator=(const File&) = delete;
+  void operator=(File&&) = delete;
 
   std::string path_;
   int fd_;
