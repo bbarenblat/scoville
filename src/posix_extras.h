@@ -72,6 +72,7 @@ class Directory {
 class File {
  public:
   File(const char* path, int flags);
+  File(const char* path, int flags, mode_t mode);
   File(const File&);
   File(File&& other) = default;
   virtual ~File() noexcept;
@@ -88,6 +89,7 @@ class File {
   // Calls openat(2) on the path relative to the file descriptor.  The path must
   // indeed be relative (i.e., it must not start with '/').
   File OpenAt(const char* path, int flags) const;
+  File OpenAt(const char* path, int flags, mode_t mode) const;
 
  private:
   File() {}

@@ -58,6 +58,14 @@ File::File(const char* const path, const int flags) : path_(path) {
   VLOG(1) << "opening file descriptor " << fd_;
 }
 
+File::File(const char* const path, const int flags, const mode_t mode)
+    : path_(path) {
+  if ((fd_ = open(path, flags, mode)) == -1) {
+    throw IoError();
+  }
+  VLOG(1) << "opening file descriptor " << fd_;
+}
+
 File::File(const File& other) : path_(other.path_), fd_(other.Duplicate()) {
   VLOG(1) << "opening file descriptor " << fd_;
 }
@@ -103,6 +111,20 @@ File File::OpenAt(const char* const path, const int flags) const {
   return result;
 }
 
+File File::OpenAt(const char* const path, const int flags,
+                  const mode_t mode) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  File result;
+  if ((result.fd_ = openat(fd_, path, flags, mode)) == -1) {
+    throw IoError();
+  }
+  result.path_ = path_ + "/" + path;
+  return result;
+}
+
 int File::Duplicate() const {
   int result;
   if ((result = dup(fd_)) == -1) {
@@ -136,9 +158,7 @@ long Directory::offset() const {
   return result;
 }
 
-void Directory::Seek(const long offset) noexcept {
-  seekdir(stream_, offset);
-}
+void Directory::Seek(const long offset) noexcept { seekdir(stream_, offset); }
 
 std::experimental::optional<dirent> Directory::ReadOne() {
   dirent* result;

@@ -44,6 +44,10 @@ namespace {
 // Pointer to the directory underlying the mount point.
 File* root_;
 
+File* FileInfoFile(fuse_file_info* const file_info) {
+  return reinterpret_cast<File*>(file_info->fh);
+}
+
 Directory* FileInfoDirectory(fuse_file_info* const file_info) {
   return reinterpret_cast<Directory*>(file_info->fh);
 }
@@ -98,6 +102,65 @@ int Getattr(const char* const path, struct stat* output) noexcept {
   } catch (const IoError& e) {
     return -e.number();
   }
+}
+
+int Open(const char* const path, fuse_file_info* const file_info) {
+  LOG(INFO) << "open(" << path << ")";
+
+  std::unique_ptr<File> file;
+
+  try {
+    file.reset(new File(
+        strcmp(path, "/") == 0
+            ?
+            // They're asking to open the mount point.
+            *root_
+            :
+            // Trim the leading slash so OpenAt will treat it relative to root_.
+            root_->OpenAt(path + 1, file_info->flags)));
+  } catch (const std::bad_alloc&) {
+    return -ENOMEM;
+  } catch (const IoError& e) {
+    return -e.number();
+  }
+
+  static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
+                "FUSE file handles are a different size than pointers");
+  file_info->fh = reinterpret_cast<uintptr_t>(file.release());
+  return 0;
+}
+
+int Create(const char* const path, const mode_t mode,
+           fuse_file_info* const file_info) {
+  LOG(INFO) << "create(" << path << ")";
+
+  if (strcmp(path, "/") == 0) {
+    // They're asking to create the mount point.  Huh?
+    return -EEXIST;
+  }
+
+  std::unique_ptr<File> file;
+
+  try {
+    // Trim the leading slash so OpenAt will treat it relative to root_.
+    file.reset(new File(root_->OpenAt(path + 1, file_info->flags, mode)));
+  } catch (const std::bad_alloc&) {
+    return -ENOMEM;
+  } catch (const IoError& e) {
+    return -e.number();
+  }
+
+  static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
+                "FUSE file handles are a different size than pointers");
+  file_info->fh = reinterpret_cast<uintptr_t>(file.release());
+  return 0;
+}
+
+int Release(const char*, fuse_file_info* const file_info) {
+  LOG(INFO) << "release";
+  File* const file = FileInfoFile(file_info);
+  delete file;
+  return 0;
 }
 
 int Opendir(const char* const path, fuse_file_info* const file_info) {
@@ -179,6 +242,11 @@ fuse_operations FuseOperations(File* const root) {
   result.destroy = &Destroy;
 
   result.getattr = &Getattr;
+
+  result.open = &Open;
+  result.create = &Create;
+  result.release = &Release;
+
   result.opendir = &Opendir;
   result.readdir = &Readdir;
   result.releasedir = &Releasedir;
