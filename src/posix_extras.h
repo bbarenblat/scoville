@@ -16,9 +16,11 @@
 #define POSIX_EXTRAS_H_
 
 #include <cerrno>
+#include <experimental/optional>
 #include <stdexcept>
 #include <string>
 
+#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -42,10 +44,36 @@ class IoError : public std::runtime_error {
   int number_;
 };
 
+class File;
+
+// RAII wrapper for Unix directory streams.
+class Directory {
+ public:
+  explicit Directory(const File&);
+  virtual ~Directory() noexcept;
+
+  long offset() const;
+
+  void Seek(long) noexcept;
+
+  std::experimental::optional<dirent> ReadOne();
+
+ private:
+  Directory(const Directory&) = delete;
+  Directory(Directory&&) = delete;
+
+  void operator=(const Directory&) = delete;
+  void operator=(Directory&&) = delete;
+
+  DIR* stream_;
+};
+
 // RAII wrapper for Unix file descriptors.
 class File {
  public:
   File(const char* path, int flags);
+  File(const File&);
+  File(File&& other) = default;
   virtual ~File() noexcept;
 
   const std::string& path() const noexcept { return path_; }
@@ -57,15 +85,23 @@ class File {
   // indeed be relative (i.e., it must not start with '/').
   struct stat LinkStatAt(const char* path) const;
 
+  // Calls openat(2) on the path relative to the file descriptor.  The path must
+  // indeed be relative (i.e., it must not start with '/').
+  File OpenAt(const char* path, int flags) const;
+
  private:
-  File(const File&) = delete;
-  File(File&&) = delete;
+  File() {}
 
   void operator=(const File&) = delete;
   void operator=(File&&) = delete;
 
+  // Duplicates fd_ and returns the raw new file descriptor.
+  int Duplicate() const;
+
   std::string path_;
   int fd_;
+
+  friend Directory::Directory(const File&);
 };
 
 }  // scoville

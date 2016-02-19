@@ -22,8 +22,10 @@
 
 #include <cerrno>
 #include <cstring>
+#include <experimental/optional>
 #include <memory>
 #include <new>
+#include <type_traits>
 
 #define FUSE_USE_VERSION 26
 #include <dirent.h>
@@ -41,12 +43,6 @@ namespace {
 
 // Pointer to the directory underlying the mount point.
 File* root_;
-
-struct Directory {
-  DIR* fd;
-  dirent* entry;
-  off_t offset;
-};
 
 Directory* FileInfoDirectory(fuse_file_info* const file_info) {
   return reinterpret_cast<Directory*>(file_info->fh);
@@ -108,17 +104,21 @@ int Opendir(const char* const path, fuse_file_info* const file_info) {
   LOG(INFO) << "opendir(" << path << ")";
 
   std::unique_ptr<Directory> directory;
-  try {
-    directory.reset(new Directory);
-  } catch (std::bad_alloc) {
-    return -ENOMEM;
-  }
 
-  if ((directory->fd = opendir(path)) == nullptr) {
-    return -errno;
+  try {
+    directory.reset(new Directory(
+        strcmp(path, "/") == 0
+            ?
+            // They're asking to open the mount point.
+            *root_
+            :
+            // Trim the leading slash so OpenAt will treat it relative to root_.
+            root_->OpenAt(path + 1, O_DIRECTORY)));
+  } catch (const std::bad_alloc&) {
+    return -ENOMEM;
+  } catch (const IoError& e) {
+    return -e.number();
   }
-  directory->entry = nullptr;
-  directory->offset = 0;
 
   static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
                 "FUSE file handles are a different size than pointers");
@@ -132,31 +132,26 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
 
   Directory* const directory = FileInfoDirectory(file_info);
 
-  if (offset != directory->offset) {
-    seekdir(directory->fd, offset);
-    directory->entry = nullptr;
-    directory->offset = offset;
-  }
+  try {
+    static_assert(std::is_same<off_t, long>(),
+                  "off_t is not convertible with long");
+    if (offset != directory->offset()) {
+      directory->Seek(offset);
+    }
 
-  while (true) {
-    if (!directory->entry) {
-      directory->entry = readdir(directory->fd);
-      if (!directory->entry) {
+    for (std::experimental::optional<dirent> entry = directory->ReadOne();
+         entry; entry = directory->ReadOne()) {
+      struct stat stats;
+      std::memset(&stats, 0, sizeof(stats));
+      stats.st_ino = entry->d_ino;
+      stats.st_mode = DirectoryTypeToFileType(entry->d_type);
+      const off_t next_offset = directory->offset();
+      if (filler(buffer, entry->d_name, &stats, next_offset)) {
         break;
       }
     }
-
-    struct stat stats;
-    std::memset(&stats, 0, sizeof(stats));
-    stats.st_ino = directory->entry->d_ino;
-    stats.st_mode = DirectoryTypeToFileType(directory->entry->d_type);
-    const off_t next_offset = telldir(directory->fd);
-    if (filler(buffer, directory->entry->d_name, &stats, next_offset)) {
-      break;
-    }
-
-    directory->entry = nullptr;
-    directory->offset = next_offset;
+  } catch (const IoError& e) {
+    return -e.number();
   }
 
   return 0;
@@ -165,7 +160,6 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
 int Releasedir(const char*, fuse_file_info* const file_info) {
   LOG(INFO) << "releasedir";
   Directory* const directory = FileInfoDirectory(file_info);
-  closedir(directory->fd);
   delete directory;
   return 0;
 }

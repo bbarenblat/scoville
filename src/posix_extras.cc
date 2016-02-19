@@ -12,15 +12,18 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+#define _BSD_SOURCE 1
 #define _POSIX_C_SOURCE 201502L
 #undef _GNU_SOURCE
 
 #include "posix_extras.h"
 
 #include <cerrno>
+#include <experimental/optional>
 #include <stdexcept>
 #include <vector>
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <glog/logging.h>
 #include <string.h>  // a POSIX header, not a libc one
@@ -52,6 +55,11 @@ File::File(const char* const path, const int flags) : path_(path) {
   if ((fd_ = open(path, flags)) == -1) {
     throw IoError();
   }
+  VLOG(1) << "opening file descriptor " << fd_;
+}
+
+File::File(const File& other) : path_(other.path_), fd_(other.Duplicate()) {
+  VLOG(1) << "opening file descriptor " << fd_;
 }
 
 File::~File() noexcept {
@@ -80,6 +88,69 @@ struct stat File::LinkStatAt(const char* const path) const {
     throw IoError();
   }
   return result;
+}
+
+File File::OpenAt(const char* const path, const int flags) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  File result;
+  if ((result.fd_ = openat(fd_, path, flags)) == -1) {
+    throw IoError();
+  }
+  result.path_ = path_ + "/" + path;
+  return result;
+}
+
+int File::Duplicate() const {
+  int result;
+  if ((result = dup(fd_)) == -1) {
+    throw IoError();
+  }
+  return result;
+}
+
+Directory::Directory(const File& file) {
+  // "After a successful call to fdopendir(), fd is used internally by the
+  // implementation, and should not otherwise be used by the application."  We
+  // therefore need to grab an unmanaged copy of the file descriptor from file.
+  if (!(stream_ = fdopendir(file.Duplicate()))) {
+    throw IoError();
+  }
+  rewinddir(stream_);
+}
+
+Directory::~Directory() noexcept {
+  if (closedir(stream_) == -1) {
+    LOG(ERROR) << "failed to close directory stream: "
+               << IoError::Message(errno);
+  }
+}
+
+long Directory::offset() const {
+  long result;
+  if ((result = telldir(stream_)) == -1) {
+    throw IoError();
+  }
+  return result;
+}
+
+void Directory::Seek(const long offset) noexcept {
+  seekdir(stream_, offset);
+}
+
+std::experimental::optional<dirent> Directory::ReadOne() {
+  dirent* result;
+  errno = 0;
+  if (!(result = readdir(stream_))) {
+    if (errno == 0) {
+      return std::experimental::nullopt;
+    } else {
+      throw IoError();
+    }
+  }
+  return *result;
 }
 
 }  // scoville
