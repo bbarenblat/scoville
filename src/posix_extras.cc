@@ -50,7 +50,7 @@ std::string IoError::Message(const int number) noexcept {
 
 File::File(const char* const path, const int flags) : path_(path) {
   if ((fd_ = open(path, flags)) == -1) {
-    throw IoError(errno);
+    throw IoError();
   }
 }
 
@@ -65,7 +65,7 @@ File::~File() noexcept {
 struct stat File::Stat() const {
   struct stat result;
   if (fstat(fd_, &result) == -1) {
-    throw IoError(errno);
+    throw IoError();
   }
   return result;
 }
@@ -77,7 +77,7 @@ struct stat File::LinkStatAt(const char* const path) const {
 
   struct stat result;
   if (fstatat(fd_, path, &result, AT_SYMLINK_NOFOLLOW) == -1) {
-    throw IoError(errno);
+    throw IoError();
   }
   return result;
 }

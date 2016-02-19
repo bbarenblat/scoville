@@ -15,6 +15,7 @@
 #ifndef POSIX_EXTRAS_H_
 #define POSIX_EXTRAS_H_
 
+#include <cerrno>
 #include <stdexcept>
 #include <string>
 
@@ -26,6 +27,8 @@ namespace scoville {
 
 class IoError : public std::runtime_error {
  public:
+  IoError() : IoError(errno) {}
+
   explicit IoError(const int number)
       : std::runtime_error(Message(number)), number_(number) {}
 
