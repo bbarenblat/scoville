@@ -41,34 +41,34 @@ namespace {
 // Pointer to the directory underlying the mount point.
 File* root_;
 
-File* FileInfoFile(fuse_file_info* const file_info) {
+File* FileInfoFile(fuse_file_info* const file_info) noexcept {
   return reinterpret_cast<File*>(file_info->fh);
 }
 
-Directory* FileInfoDirectory(fuse_file_info* const file_info) {
+Directory* FileInfoDirectory(fuse_file_info* const file_info) noexcept {
   return reinterpret_cast<Directory*>(file_info->fh);
 }
 
-mode_t DirectoryTypeToFileType(const unsigned char type) {
+mode_t DirectoryTypeToFileType(const unsigned char type) noexcept {
   return static_cast<mode_t>(DTTOIF(type));
 }
 
-void* Initialize(fuse_conn_info*) {
+void* Initialize(fuse_conn_info*) noexcept {
   LOG(INFO) << "initialize";
   return nullptr;
 }
 
-void Destroy(void*) { LOG(INFO) << "destroy"; }
+void Destroy(void*) noexcept { LOG(INFO) << "destroy"; }
 
 int Getattr(const char* const path, struct stat* output) noexcept {
-  LOG(INFO) << "getattr(" << path << ")";
-
-  if (path[0] == '\0') {
-    LOG(ERROR) << "getattr called on path not starting with /";
-    return -ENOENT;
-  }
-
   try {
+    LOG(INFO) << "getattr(" << path << ")";
+
+    if (path[0] == '\0') {
+      LOG(ERROR) << "getattr called on path not starting with /";
+      return -ENOENT;
+    }
+
     if (std::strcmp(path, "/") == 0) {
       // They're asking for information about the mount point.
       *output = root_->Stat();
@@ -81,16 +81,17 @@ int Getattr(const char* const path, struct stat* output) noexcept {
     return 0;
   } catch (const std::system_error& e) {
     return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "getattr caught unexpected value";
+    return -ENOTRECOVERABLE;
   }
 }
 
-int Open(const char* const path, fuse_file_info* const file_info) {
+int Open(const char* const path, fuse_file_info* const file_info) noexcept {
   LOG(INFO) << "open(" << path << ")";
 
-  std::unique_ptr<File> file;
-
   try {
-    file.reset(new File(
+    std::unique_ptr<File> file(new File(
         std::strcmp(path, "/") == 0
             ?
             // They're asking to open the mount point.
@@ -98,84 +99,89 @@ int Open(const char* const path, fuse_file_info* const file_info) {
             :
             // Trim the leading slash so OpenAt will treat it relative to root_.
             root_->OpenAt(path + 1, file_info->flags)));
+
+    static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
+                  "FUSE file handles are a different size than pointers");
+    file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
+    return 0;
   } catch (const std::bad_alloc&) {
     return -ENOMEM;
   } catch (const std::system_error& e) {
     return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "open caught unexpected value";
+    return -ENOTRECOVERABLE;
   }
-
-  static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
-                "FUSE file handles are a different size than pointers");
-  file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
-  return 0;
 }
 
 int Create(const char* const path, const mode_t mode,
-           fuse_file_info* const file_info) {
+           fuse_file_info* const file_info) noexcept {
   LOG(INFO) << "create(" << path << ")";
 
-  if (std::strcmp(path, "/") == 0) {
-    // They're asking to create the mount point.  Huh?
-    return -EEXIST;
-  }
-
-  std::unique_ptr<File> file;
-
   try {
+    if (std::strcmp(path, "/") == 0) {
+      // They're asking to create the mount point.  Huh?
+      return -EEXIST;
+    }
+
     // Trim the leading slash so OpenAt will treat it relative to root_.
-    file.reset(new File(root_->OpenAt(path + 1, file_info->flags, mode)));
+    std::unique_ptr<File> file(
+        new File(root_->OpenAt(path + 1, file_info->flags, mode)));
+
+    static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
+                  "FUSE file handles are a different size than pointers");
+    file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
+    return 0;
   } catch (const std::bad_alloc&) {
     return -ENOMEM;
   } catch (const std::system_error& e) {
     return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "create caught unexpected value";
+    return -ENOTRECOVERABLE;
   }
-
-  static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
-                "FUSE file handles are a different size than pointers");
-  file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
-  return 0;
 }
 
-int Release(const char*, fuse_file_info* const file_info) {
+int Release(const char*, fuse_file_info* const file_info) noexcept {
   LOG(INFO) << "release";
   File* const file = FileInfoFile(file_info);
   delete file;
   return 0;
 }
 
-int Opendir(const char* const path, fuse_file_info* const file_info) {
+int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
   LOG(INFO) << "opendir(" << path << ")";
 
-  std::unique_ptr<Directory> directory;
-
   try {
-    directory.reset(new Directory(
-        std::strcmp(path, "/") == 0
-            ?
-            // They're asking to open the mount point.
+    std::unique_ptr<Directory> directory(new Directory(
+        std::strcmp(path, "/") == 0 ?
+                                    // They're asking to open the mount point.
             *root_
-            :
-            // Trim the leading slash so OpenAt will treat it relative to root_.
+                                    :
+                                    // Trim the leading slash so OpenAt will
+            // treat it relative to root_.
             root_->OpenAt(path + 1, O_DIRECTORY)));
+    static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
+                  "FUSE file handles are a different size than pointers");
+    file_info->fh = reinterpret_cast<std::uintptr_t>(directory.release());
+    return 0;
   } catch (const std::bad_alloc&) {
     return -ENOMEM;
   } catch (const std::system_error& e) {
     return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "opendir caught unexpected value";
+    return -ENOTRECOVERABLE;
   }
-
-  static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
-                "FUSE file handles are a different size than pointers");
-  file_info->fh = reinterpret_cast<std::uintptr_t>(directory.release());
-  return 0;
 }
 
 int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
-            const off_t offset, fuse_file_info* const file_info) {
+            const off_t offset, fuse_file_info* const file_info) noexcept {
   LOG(INFO) << "readdir";
 
-  Directory* const directory = FileInfoDirectory(file_info);
-
   try {
+    Directory* const directory = FileInfoDirectory(file_info);
+
     static_assert(std::is_same<off_t, long>(),
                   "off_t is not convertible with long");
     if (offset != directory->offset()) {
@@ -195,16 +201,25 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
     }
   } catch (const std::system_error& e) {
     return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "readdir caught unexpected value";
+    return -ENOTRECOVERABLE;
   }
 
   return 0;
 }
 
-int Releasedir(const char*, fuse_file_info* const file_info) {
+int Releasedir(const char*, fuse_file_info* const file_info) noexcept {
   LOG(INFO) << "releasedir";
-  Directory* const directory = FileInfoDirectory(file_info);
-  delete directory;
-  return 0;
+
+  try {
+    Directory* const directory = FileInfoDirectory(file_info);
+    delete directory;
+    return 0;
+  } catch (...) {
+    LOG(ERROR) << "releasedir caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
 }
 
 }  // namespace
