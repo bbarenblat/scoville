@@ -49,24 +49,7 @@ Directory* FileInfoDirectory(fuse_file_info* const file_info) {
 }
 
 mode_t DirectoryTypeToFileType(const unsigned char type) {
-  switch (type) {
-    case DT_BLK:
-      return S_IFBLK;
-    case DT_CHR:
-      return S_IFCHR;
-    case DT_DIR:
-      return S_IFDIR;
-    case DT_FIFO:
-      return S_IFIFO;
-    case DT_LNK:
-      return S_IFLNK;
-    case DT_REG:
-      return S_IFREG;
-    case DT_SOCK:
-      return S_IFSOCK;
-    default:
-      return 0;
-  }
+  return static_cast<mode_t>(DTTOIF(type));
 }
 
 void* Initialize(fuse_conn_info*) {
