@@ -68,7 +68,9 @@ class File {
 
   // Calls openat(2) on the path relative to the file descriptor.  The path must
   // indeed be relative (i.e., it must not start with '/').
-  File OpenAt(const char* path, int flags) const;
+  File OpenAt(const char* const path, const int flags) const {
+    return OpenAt(path, flags, 0);
+  }
   File OpenAt(const char* path, int flags, mode_t mode) const;
 
   // Removes the file at the path relative to the file descriptor.  The path

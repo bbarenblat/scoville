@@ -75,19 +75,6 @@ struct stat File::LinkStatAt(const char* const path) const {
   return result;
 }
 
-File File::OpenAt(const char* const path, const int flags) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
-  File result;
-  if ((result.fd_ = openat(fd_, path, flags)) == -1) {
-    throw SystemError();
-  }
-  result.path_ = path_ + "/" + path;
-  return result;
-}
-
 File File::OpenAt(const char* const path, const int flags,
                   const mode_t mode) const {
   if (path[0] == '/') {
