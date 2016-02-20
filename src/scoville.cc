@@ -16,12 +16,11 @@
 
 #include <memory>
 
-#define FUSE_USE_VERSION 26
 #include <fcntl.h>
-#include <fuse/fuse.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#include "fuse.h"
 #include "operations.h"
 #include "posix_extras.h"
 

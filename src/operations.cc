@@ -25,13 +25,12 @@
 #include <new>
 #include <type_traits>
 
-#define FUSE_USE_VERSION 26
 #include <dirent.h>
-#include <fuse.h>
 #include <glog/logging.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "fuse.h"
 #include "posix_extras.h"
 
 namespace scoville {

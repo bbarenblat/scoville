@@ -12,16 +12,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#ifndef OPERATIONS_H_
-#define OPERATIONS_H_
+#ifndef FUSE_H_
+#define FUSE_H_
 
-#include "fuse.h"
-#include "posix_extras.h"
+#define FUSE_USE_VERSION 26
+#include <fuse/fuse.h>
 
-namespace scoville {
-
-fuse_operations FuseOperations(File* root);
-
-}  // namespace scoville
-
-#endif  // OPERATIONS_H_
+#endif  // FUSE_H_
