@@ -41,14 +41,6 @@ namespace {
 // Pointer to the directory underlying the mount point.
 File* root_;
 
-File* FileInfoFile(fuse_file_info* const file_info) noexcept {
-  return reinterpret_cast<File*>(file_info->fh);
-}
-
-Directory* FileInfoDirectory(fuse_file_info* const file_info) noexcept {
-  return reinterpret_cast<Directory*>(file_info->fh);
-}
-
 mode_t DirectoryTypeToFileType(const unsigned char type) noexcept {
   return static_cast<mode_t>(DTTOIF(type));
 }
@@ -109,6 +101,12 @@ int OpenResource(const char* const path, const int flags, const mode_t mode,
   }
 }
 
+template <typename T>
+int ReleaseResource(const uint64_t handle) noexcept {
+  delete reinterpret_cast<T*>(handle);
+  return 0;
+}
+
 int Open(const char* const path, fuse_file_info* const file_info) noexcept {
   return OpenResource<File>(path, file_info->flags, 0777, &file_info->fh);
 }
@@ -133,8 +131,7 @@ int Create(const char* const path, const mode_t mode,
 }
 
 int Release(const char*, fuse_file_info* const file_info) noexcept {
-  delete FileInfoFile(file_info);
-  return 0;
+  return ReleaseResource<File>(file_info->fh);
 }
 
 int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
@@ -144,7 +141,7 @@ int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
 int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
             const off_t offset, fuse_file_info* const file_info) noexcept {
   try {
-    Directory* const directory = FileInfoDirectory(file_info);
+    auto* const directory = reinterpret_cast<Directory*>(file_info->fh);
 
     static_assert(std::is_same<off_t, long>(),
                   "off_t is not convertible with long");
@@ -174,13 +171,7 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
 }
 
 int Releasedir(const char*, fuse_file_info* const file_info) noexcept {
-  try {
-    delete FileInfoDirectory(file_info);
-    return 0;
-  } catch (...) {
-    LOG(ERROR) << "releasedir: caught unexpected value";
-    return -ENOTRECOVERABLE;
-  }
+  return ReleaseResource<Directory>(file_info->fh);
 }
 
 }  // namespace
