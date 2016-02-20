@@ -133,8 +133,7 @@ int Create(const char* const path, const mode_t mode,
 }
 
 int Release(const char*, fuse_file_info* const file_info) noexcept {
-  File* const file = FileInfoFile(file_info);
-  delete file;
+  delete FileInfoFile(file_info);
   return 0;
 }
 
@@ -176,8 +175,7 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
 
 int Releasedir(const char*, fuse_file_info* const file_info) noexcept {
   try {
-    Directory* const directory = FileInfoDirectory(file_info);
-    delete directory;
+    delete FileInfoDirectory(file_info);
     return 0;
   } catch (...) {
     LOG(ERROR) << "releasedir: caught unexpected value";
