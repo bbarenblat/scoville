@@ -69,7 +69,7 @@ int Getattr(const char* const path, struct stat* output) noexcept {
   }
 
   try {
-    if (strcmp(path, "/") == 0) {
+    if (std::strcmp(path, "/") == 0) {
       // They're asking for information about the mount point.
       *output = root_->Stat();
       return 0;
@@ -91,7 +91,7 @@ int Open(const char* const path, fuse_file_info* const file_info) {
 
   try {
     file.reset(new File(
-        strcmp(path, "/") == 0
+        std::strcmp(path, "/") == 0
             ?
             // They're asking to open the mount point.
             *root_
@@ -104,9 +104,9 @@ int Open(const char* const path, fuse_file_info* const file_info) {
     return -e.code().value();
   }
 
-  static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
+  static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
                 "FUSE file handles are a different size than pointers");
-  file_info->fh = reinterpret_cast<uintptr_t>(file.release());
+  file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
   return 0;
 }
 
@@ -114,7 +114,7 @@ int Create(const char* const path, const mode_t mode,
            fuse_file_info* const file_info) {
   LOG(INFO) << "create(" << path << ")";
 
-  if (strcmp(path, "/") == 0) {
+  if (std::strcmp(path, "/") == 0) {
     // They're asking to create the mount point.  Huh?
     return -EEXIST;
   }
@@ -130,9 +130,9 @@ int Create(const char* const path, const mode_t mode,
     return -e.code().value();
   }
 
-  static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
+  static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
                 "FUSE file handles are a different size than pointers");
-  file_info->fh = reinterpret_cast<uintptr_t>(file.release());
+  file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
   return 0;
 }
 
@@ -150,7 +150,7 @@ int Opendir(const char* const path, fuse_file_info* const file_info) {
 
   try {
     directory.reset(new Directory(
-        strcmp(path, "/") == 0
+        std::strcmp(path, "/") == 0
             ?
             // They're asking to open the mount point.
             *root_
@@ -163,9 +163,9 @@ int Opendir(const char* const path, fuse_file_info* const file_info) {
     return -e.code().value();
   }
 
-  static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
+  static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
                 "FUSE file handles are a different size than pointers");
-  file_info->fh = reinterpret_cast<uintptr_t>(directory.release());
+  file_info->fh = reinterpret_cast<std::uintptr_t>(directory.release());
   return 0;
 }
 
