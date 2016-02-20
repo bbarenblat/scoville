@@ -87,31 +87,36 @@ int Getattr(const char* const path, struct stat* output) noexcept {
   }
 }
 
-int Open(const char* const path, fuse_file_info* const file_info) noexcept {
-  LOG(INFO) << "open(" << path << ")";
-
+template <typename T>
+int OpenResource(const char* const path, const int flags, const mode_t mode,
+                 uint64_t* const handle) noexcept {
   try {
-    std::unique_ptr<File> file(new File(
+    std::unique_ptr<T> t(new T(
         std::strcmp(path, "/") == 0
             ?
             // They're asking to open the mount point.
             *root_
             :
             // Trim the leading slash so OpenAt will treat it relative to root_.
-            root_->OpenAt(path + 1, file_info->flags)));
+            root_->OpenAt(path + 1, flags, mode)));
 
-    static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
+    static_assert(sizeof(*handle) == sizeof(std::uintptr_t),
                   "FUSE file handles are a different size than pointers");
-    file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
+    *handle = reinterpret_cast<std::uintptr_t>(t.release());
     return 0;
   } catch (const std::bad_alloc&) {
     return -ENOMEM;
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
-    LOG(ERROR) << "open caught unexpected value";
+    LOG(ERROR) << "caught unexpected value";
     return -ENOTRECOVERABLE;
   }
+}
+
+int Open(const char* const path, fuse_file_info* const file_info) noexcept {
+  LOG(INFO) << "open(" << path << ")";
+  return OpenResource<File>(path, file_info->flags, 0777, &file_info->fh);
 }
 
 int Create(const char* const path, const mode_t mode,
@@ -124,16 +129,7 @@ int Create(const char* const path, const mode_t mode,
       return -EEXIST;
     }
 
-    // Trim the leading slash so OpenAt will treat it relative to root_.
-    std::unique_ptr<File> file(
-        new File(root_->OpenAt(path + 1, file_info->flags, mode)));
-
-    static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
-                  "FUSE file handles are a different size than pointers");
-    file_info->fh = reinterpret_cast<std::uintptr_t>(file.release());
-    return 0;
-  } catch (const std::bad_alloc&) {
-    return -ENOMEM;
+    return OpenResource<File>(path, file_info->flags, mode, &file_info->fh);
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
@@ -151,28 +147,7 @@ int Release(const char*, fuse_file_info* const file_info) noexcept {
 
 int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
   LOG(INFO) << "opendir(" << path << ")";
-
-  try {
-    std::unique_ptr<Directory> directory(new Directory(
-        std::strcmp(path, "/") == 0 ?
-                                    // They're asking to open the mount point.
-            *root_
-                                    :
-                                    // Trim the leading slash so OpenAt will
-            // treat it relative to root_.
-            root_->OpenAt(path + 1, O_DIRECTORY)));
-    static_assert(sizeof(file_info->fh) == sizeof(std::uintptr_t),
-                  "FUSE file handles are a different size than pointers");
-    file_info->fh = reinterpret_cast<std::uintptr_t>(directory.release());
-    return 0;
-  } catch (const std::bad_alloc&) {
-    return -ENOMEM;
-  } catch (const std::system_error& e) {
-    return -e.code().value();
-  } catch (...) {
-    LOG(ERROR) << "opendir caught unexpected value";
-    return -ENOTRECOVERABLE;
-  }
+  return OpenResource<Directory>(path, O_DIRECTORY, 0777, &file_info->fh);
 }
 
 int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
