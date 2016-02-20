@@ -12,49 +12,34 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#define _XOPEN_SOURCE 700
-#undef _GNU_SOURCE
-
 #include "posix_extras.h"
 
 #include <cerrno>
 #include <experimental/optional>
 #include <stdexcept>
-#include <string>
-#include <vector>
+#include <system_error>
 
 #include <dirent.h>
 #include <fcntl.h>
 #include <glog/logging.h>
-#include <string.h>  // a POSIX header, not a libc one
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 namespace scoville {
 
-std::string IoError::Message(const int number) noexcept {
-  try {
-    std::vector<char> text(64);
-    int strerror_result;
-    while ((strerror_result = strerror_r(number, text.data(), text.size())) ==
-           ERANGE) {
-      VLOG(1) << "IoError::Message: doubling message size from " << text.size();
-      text.resize(text.size() * 2);
-    }
+namespace {
 
-    if (strerror_result == 0) {
-      return std::string(text.begin(), text.end());
-    }
-  } catch (...) {
-  }
-  return "(could not generate error message)";
+std::system_error SystemError() {
+  return std::system_error(errno, std::system_category());
 }
+
+}  // namespace
 
 File::File(const char* const path, const int flags, const mode_t mode)
     : path_(path) {
   if ((fd_ = open(path, flags, mode)) == -1) {
-    throw IoError();
+    throw SystemError();
   }
   VLOG(1) << "opening file descriptor " << fd_;
 }
@@ -66,15 +51,14 @@ File::File(const File& other) : path_(other.path_), fd_(other.Duplicate()) {
 File::~File() noexcept {
   VLOG(1) << "closing file descriptor " << fd_;
   if (close(fd_) == -1) {
-    LOG(ERROR) << "failed to close file descriptor " << fd_ << ": "
-               << IoError::Message(errno);
+    LOG(ERROR) << "failed to close file descriptor " << fd_;
   }
 }
 
 struct stat File::Stat() const {
   struct stat result;
   if (fstat(fd_, &result) == -1) {
-    throw IoError();
+    throw SystemError();
   }
   return result;
 }
@@ -86,7 +70,7 @@ struct stat File::LinkStatAt(const char* const path) const {
 
   struct stat result;
   if (fstatat(fd_, path, &result, AT_SYMLINK_NOFOLLOW) == -1) {
-    throw IoError();
+    throw SystemError();
   }
   return result;
 }
@@ -98,7 +82,7 @@ File File::OpenAt(const char* const path, const int flags) const {
 
   File result;
   if ((result.fd_ = openat(fd_, path, flags)) == -1) {
-    throw IoError();
+    throw SystemError();
   }
   result.path_ = path_ + "/" + path;
   return result;
@@ -112,7 +96,7 @@ File File::OpenAt(const char* const path, const int flags,
 
   File result;
   if ((result.fd_ = openat(fd_, path, flags, mode)) == -1) {
-    throw IoError();
+    throw SystemError();
   }
   result.path_ = path_ + "/" + path;
   return result;
@@ -121,7 +105,7 @@ File File::OpenAt(const char* const path, const int flags,
 int File::Duplicate() const {
   int result;
   if ((result = dup(fd_)) == -1) {
-    throw IoError();
+    throw SystemError();
   }
   return result;
 }
@@ -131,22 +115,21 @@ Directory::Directory(const File& file) {
   // implementation, and should not otherwise be used by the application."  We
   // therefore need to grab an unmanaged copy of the file descriptor from file.
   if (!(stream_ = fdopendir(file.Duplicate()))) {
-    throw IoError();
+    throw SystemError();
   }
   rewinddir(stream_);
 }
 
 Directory::~Directory() noexcept {
   if (closedir(stream_) == -1) {
-    LOG(ERROR) << "failed to close directory stream: "
-               << IoError::Message(errno);
+    LOG(ERROR) << "failed to close directory stream";
   }
 }
 
 long Directory::offset() const {
   long result;
   if ((result = telldir(stream_)) == -1) {
-    throw IoError();
+    throw SystemError();
   }
   return result;
 }
@@ -160,7 +143,7 @@ std::experimental::optional<dirent> Directory::ReadOne() {
     if (errno == 0) {
       return std::experimental::nullopt;
     } else {
-      throw IoError();
+      throw SystemError();
     }
   }
   return *result;

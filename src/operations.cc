@@ -23,6 +23,7 @@
 #include <experimental/optional>
 #include <memory>
 #include <new>
+#include <system_error>
 #include <type_traits>
 
 #include <dirent.h>
@@ -78,8 +79,8 @@ int Getattr(const char* const path, struct stat* output) noexcept {
     LOG(INFO) << "getattr: trimming leading slash";
     *output = root_->LinkStatAt(path + 1);
     return 0;
-  } catch (const IoError& e) {
-    return -e.number();
+  } catch (const std::system_error& e) {
+    return -e.code().value();
   }
 }
 
@@ -99,8 +100,8 @@ int Open(const char* const path, fuse_file_info* const file_info) {
             root_->OpenAt(path + 1, file_info->flags)));
   } catch (const std::bad_alloc&) {
     return -ENOMEM;
-  } catch (const IoError& e) {
-    return -e.number();
+  } catch (const std::system_error& e) {
+    return -e.code().value();
   }
 
   static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
@@ -125,8 +126,8 @@ int Create(const char* const path, const mode_t mode,
     file.reset(new File(root_->OpenAt(path + 1, file_info->flags, mode)));
   } catch (const std::bad_alloc&) {
     return -ENOMEM;
-  } catch (const IoError& e) {
-    return -e.number();
+  } catch (const std::system_error& e) {
+    return -e.code().value();
   }
 
   static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
@@ -158,8 +159,8 @@ int Opendir(const char* const path, fuse_file_info* const file_info) {
             root_->OpenAt(path + 1, O_DIRECTORY)));
   } catch (const std::bad_alloc&) {
     return -ENOMEM;
-  } catch (const IoError& e) {
-    return -e.number();
+  } catch (const std::system_error& e) {
+    return -e.code().value();
   }
 
   static_assert(sizeof(file_info->fh) == sizeof(uintptr_t),
@@ -192,8 +193,8 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
         break;
       }
     }
-  } catch (const IoError& e) {
-    return -e.number();
+  } catch (const std::system_error& e) {
+    return -e.code().value();
   }
 
   return 0;

@@ -15,9 +15,7 @@
 #ifndef POSIX_EXTRAS_H_
 #define POSIX_EXTRAS_H_
 
-#include <cerrno>
 #include <experimental/optional>
-#include <stdexcept>
 #include <string>
 
 #include <dirent.h>
@@ -25,23 +23,6 @@
 #include <sys/types.h>
 
 namespace scoville {
-
-class IoError : public std::runtime_error {
- public:
-  IoError() : IoError(errno) {}
-
-  explicit IoError(const int number)
-      : std::runtime_error(Message(number)), number_(number) {}
-
-  int number() const noexcept { return number_; }
-
-  // Converts an errno into a human-readable message, a la strerror(3).
-  // Thread-safe.
-  static std::string Message(int) noexcept;
-
- private:
-  int number_;
-};
 
 class File;
 

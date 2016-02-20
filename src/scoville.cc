@@ -15,6 +15,7 @@
 // this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <memory>
+#include <system_error>
 
 #include <fcntl.h>
 #include <gflags/gflags.h>
@@ -42,7 +43,7 @@ int main(int argc, char* argv[]) {
   const char* const root_path = argv[argc - 1];
   try {
     root.reset(new scoville::File(root_path, O_DIRECTORY));
-  } catch (const scoville::IoError& e) {
+  } catch (const std::system_error& e) {
     LOG(FATAL) << "scoville: bad mount point `" << root_path
                << "': " << e.what();
   }
