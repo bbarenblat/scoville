@@ -53,19 +53,14 @@ mode_t DirectoryTypeToFileType(const unsigned char type) noexcept {
   return static_cast<mode_t>(DTTOIF(type));
 }
 
-void* Initialize(fuse_conn_info*) noexcept {
-  LOG(INFO) << "initialize";
-  return nullptr;
-}
+void* Initialize(fuse_conn_info*) noexcept { return nullptr; }
 
-void Destroy(void*) noexcept { LOG(INFO) << "destroy"; }
+void Destroy(void*) noexcept {}
 
 int Getattr(const char* const path, struct stat* output) noexcept {
   try {
-    LOG(INFO) << "getattr(" << path << ")";
-
     if (path[0] == '\0') {
-      LOG(ERROR) << "getattr called on path not starting with /";
+      LOG(ERROR) << "getattr: called on path not starting with /";
       return -ENOENT;
     }
 
@@ -82,7 +77,7 @@ int Getattr(const char* const path, struct stat* output) noexcept {
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
-    LOG(ERROR) << "getattr caught unexpected value";
+    LOG(ERROR) << "getattr: caught unexpected value";
     return -ENOTRECOVERABLE;
   }
 }
@@ -115,14 +110,11 @@ int OpenResource(const char* const path, const int flags, const mode_t mode,
 }
 
 int Open(const char* const path, fuse_file_info* const file_info) noexcept {
-  LOG(INFO) << "open(" << path << ")";
   return OpenResource<File>(path, file_info->flags, 0777, &file_info->fh);
 }
 
 int Create(const char* const path, const mode_t mode,
            fuse_file_info* const file_info) noexcept {
-  LOG(INFO) << "create(" << path << ")";
-
   try {
     if (std::strcmp(path, "/") == 0) {
       // They're asking to create the mount point.  Huh?
@@ -135,27 +127,23 @@ int Create(const char* const path, const mode_t mode,
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
-    LOG(ERROR) << "create caught unexpected value";
+    LOG(ERROR) << "create: caught unexpected value";
     return -ENOTRECOVERABLE;
   }
 }
 
 int Release(const char*, fuse_file_info* const file_info) noexcept {
-  LOG(INFO) << "release";
   File* const file = FileInfoFile(file_info);
   delete file;
   return 0;
 }
 
 int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
-  LOG(INFO) << "opendir(" << path << ")";
   return OpenResource<Directory>(path, O_DIRECTORY, 0777, &file_info->fh);
 }
 
 int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
             const off_t offset, fuse_file_info* const file_info) noexcept {
-  LOG(INFO) << "readdir";
-
   try {
     Directory* const directory = FileInfoDirectory(file_info);
 
@@ -179,7 +167,7 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
-    LOG(ERROR) << "readdir caught unexpected value";
+    LOG(ERROR) << "readdir: caught unexpected value";
     return -ENOTRECOVERABLE;
   }
 
@@ -187,14 +175,12 @@ int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
 }
 
 int Releasedir(const char*, fuse_file_info* const file_info) noexcept {
-  LOG(INFO) << "releasedir";
-
   try {
     Directory* const directory = FileInfoDirectory(file_info);
     delete directory;
     return 0;
   } catch (...) {
-    LOG(ERROR) << "releasedir caught unexpected value";
+    LOG(ERROR) << "releasedir: caught unexpected value";
     return -ENOTRECOVERABLE;
   }
 }
