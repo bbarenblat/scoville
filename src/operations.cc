@@ -129,7 +129,9 @@ int Create(const char* const path, const mode_t mode,
       return -EEXIST;
     }
 
-    return OpenResource<File>(path, file_info->flags, mode, &file_info->fh);
+    return OpenResource<File>(path,
+                              file_info->flags | O_CREAT | O_WRONLY | O_EXCL,
+                              mode, &file_info->fh);
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
