@@ -71,6 +71,10 @@ class File {
   File OpenAt(const char* path, int flags) const;
   File OpenAt(const char* path, int flags, mode_t mode) const;
 
+  // Removes the file at the path relative to the file descriptor.  The path
+  // must indeed be relative (i.e., it must not start with '/').
+  void UnlinkAt(const char* path) const;
+
  private:
   File() {}
 

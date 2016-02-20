@@ -102,6 +102,16 @@ File File::OpenAt(const char* const path, const int flags,
   return result;
 }
 
+void File::UnlinkAt(const char* const path) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  if (unlinkat(fd_, path, 0) == -1) {
+    throw SystemError();
+  }
+}
+
 int File::Duplicate() const {
   int result;
   if ((result = dup(fd_)) == -1) {

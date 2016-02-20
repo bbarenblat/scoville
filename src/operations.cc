@@ -134,6 +134,24 @@ int Release(const char*, fuse_file_info* const file_info) noexcept {
   return ReleaseResource<File>(file_info->fh);
 }
 
+int Unlink(const char* c_path) noexcept {
+  try {
+    if (std::strcmp(path, "/") == 0) {
+      // Removing the root is probably a bad idea.
+      return -EPERM;
+    }
+
+    // Trim the leading slash so UnlinkAt will treat it relative to root_.
+    root_->UnlinkAt(path + 1);
+    return 0;
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "unlink: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
 int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
   return OpenResource<Directory>(path, O_DIRECTORY, 0777, &file_info->fh);
 }
@@ -193,6 +211,7 @@ fuse_operations FuseOperations(File* const root) {
   result.open = &Open;
   result.create = &Create;
   result.release = &Release;
+  result.unlink = &Unlink;
 
   result.opendir = &Opendir;
   result.readdir = &Readdir;
