@@ -15,12 +15,10 @@
 // You should have received a copy of the GNU General Public License along with
 // this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define BSD_SOURCE
-#define _POSIX_C_SOURCE 201602L
-
 #include "operations.h"
 
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <experimental/optional>
 #include <memory>
@@ -33,7 +31,6 @@
 #include <glog/logging.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include "posix_extras.h"
 

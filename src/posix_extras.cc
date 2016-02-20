@@ -12,8 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#define _BSD_SOURCE 1
-#define _POSIX_C_SOURCE 201502L
+#define _XOPEN_SOURCE 700
 #undef _GNU_SOURCE
 
 #include "posix_extras.h"
@@ -21,6 +20,7 @@
 #include <cerrno>
 #include <experimental/optional>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <dirent.h>

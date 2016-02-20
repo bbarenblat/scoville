@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License along with
 // this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <iostream>
 #include <memory>
 
+#define FUSE_USE_VERSION 26
+#include <fcntl.h>
+#include <fuse/fuse.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
@@ -33,7 +35,9 @@ int main(int argc, char* argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
-  // Open an FD to the underlying file system so we can still do operations on
+  // This is an overlay file system, which means once we start FUSE, the
+  // underlying file system will be inaccessible through normal means.  Open a
+  // file descriptor to the underlying root now so we can still do operations on
   // it while it's overlayed.
   std::unique_ptr<scoville::File> root;
   const char* const root_path = argv[argc - 1];
