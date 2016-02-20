@@ -51,13 +51,6 @@ std::string IoError::Message(const int number) noexcept {
   return "(could not generate error message)";
 }
 
-File::File(const char* const path, const int flags) : path_(path) {
-  if ((fd_ = open(path, flags)) == -1) {
-    throw IoError();
-  }
-  VLOG(1) << "opening file descriptor " << fd_;
-}
-
 File::File(const char* const path, const int flags, const mode_t mode)
     : path_(path) {
   if ((fd_ = open(path, flags, mode)) == -1) {

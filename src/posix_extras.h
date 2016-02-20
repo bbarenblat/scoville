@@ -70,7 +70,7 @@ class Directory {
 // RAII wrapper for Unix file descriptors.
 class File {
  public:
-  File(const char* path, int flags);
+  File(const char* path, int flags) : File(path, flags, 0777) {}
   File(const char* path, int flags, mode_t mode);
   File(const File&);
   File(File&& other) = default;
