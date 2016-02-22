@@ -14,6 +14,7 @@
 
 #include "posix_extras.h"
 
+#include <array>
 #include <cerrno>
 #include <experimental/optional>
 #include <stdexcept>
@@ -106,6 +107,18 @@ void File::UnlinkAt(const char* const path) const {
   }
 
   if (unlinkat(fd_, path, 0) == -1) {
+    throw SystemError();
+  }
+}
+
+void File::UTimeNs(const char* const path, const timespec& access,
+                   const timespec& modification) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  std::array<const timespec, 2> times{{access, modification}};
+  if (utimensat(fd_, path, times.data(), AT_SYMLINK_NOFOLLOW) == -1) {
     throw SystemError();
   }
 }

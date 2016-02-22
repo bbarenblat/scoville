@@ -30,6 +30,7 @@
 #include <glog/logging.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "fuse.h"
 #include "posix_extras.h"
@@ -130,6 +131,27 @@ int Open(const char* const path, fuse_file_info* const file_info) noexcept {
   return OpenResource<File>(path, file_info->flags, &file_info->fh);
 }
 
+int Utimens(const char* const path, const timespec times[2]) noexcept {
+  try {
+    root_->UTimeNs(
+        std::strcmp(path, "/") == 0
+            ?
+            // Update the times on the mount point.
+            "."
+            :
+            // Trim the leading slash so UTimeNs will treat it relative to
+            // root_.
+            path + 1,
+        times[0], times[1]);
+    return 0;
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "utimens: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
 int Release(const char*, fuse_file_info* const file_info) noexcept {
   return ReleaseResource<File>(file_info->fh);
 }
@@ -211,6 +233,7 @@ fuse_operations FuseOperations(File* const root) {
 
   result.mknod = &Mknod;
   result.open = &Open;
+  result.utimens = &Utimens;
   result.release = &Release;
   result.unlink = &Unlink;
 

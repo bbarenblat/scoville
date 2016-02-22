@@ -21,6 +21,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 
 namespace scoville {
 
@@ -80,6 +81,12 @@ class File {
   // Removes the file at the path relative to the file descriptor.  The path
   // must indeed be relative (i.e., it must not start with '/').
   void UnlinkAt(const char* path) const;
+
+  // Sets the access and modification times of the file at the path relative to
+  // the file descriptor.  The path must indeed be relative (i.e., it must not
+  // start with '/').  Does not follow symbolic links.
+  void UTimeNs(const char* path, const timespec& access,
+               const timespec& modification) const;
 
  private:
   File() {}
