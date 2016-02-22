@@ -335,6 +335,7 @@ fuse_operations FuseOperations(File* const root) {
   result.fgetattr = &Fgetattr;
 
   result.mknod = &Mknod;
+  result.chmod = &Chmod;
   result.rename = &Rename;
   result.open = &Open;
   result.read = &Read;

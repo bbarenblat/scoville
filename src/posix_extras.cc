@@ -67,6 +67,15 @@ struct stat File::Stat() const {
   return result;
 }
 
+void File::ChModAt(const char* const path, const mode_t mode) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+  if (fchmodat(fd_, path, mode, 0) == -1) {
+    throw SystemError();
+  }
+}
+
 struct stat File::LinkStatAt(const char* const path) const {
   if (path[0] == '/') {
     throw std::invalid_argument("absolute path");

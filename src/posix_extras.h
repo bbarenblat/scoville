@@ -65,6 +65,10 @@ class File {
   // Calls fstat(2) on the file descriptor.
   struct stat Stat() const;
 
+  // Changes the file mode of the path relative to the file descriptor.  The
+  // path must indeed be relative (i.e., it must not start with '/').
+  void ChModAt(const char* path, mode_t) const;
+
   // Calls lstat(2) on the path relative to the file descriptor.  The path must
   // indeed be relative (i.e., it must not start with '/').
   struct stat LinkStatAt(const char* path) const;
