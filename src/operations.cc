@@ -157,7 +157,22 @@ int Read(const char*, char* const buffer, const size_t bytes,
   }
 }
 
-int Utimens(const char* const path, const timespec times[2]) noexcept {
+int Write(const char*, const char* const buffer, const size_t bytes,
+          const off_t offset, fuse_file_info* const file_info) noexcept {
+  try {
+    auto* const file = reinterpret_cast<File*>(file_info->fh);
+    const std::vector<std::uint8_t> to_write(buffer, buffer + bytes);
+    file->Write(offset, to_write);
+    return static_cast<int>(bytes);
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "read: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
+int Utimens(const char* const c_path, const timespec times[2]) noexcept {
   try {
     const std::string path(c_path);
     root_->UTimeNs(path == "/" ? "." : EncodePath(path).c_str(), times[0],
@@ -254,6 +269,7 @@ fuse_operations FuseOperations(File* const root) {
   result.mknod = &Mknod;
   result.open = &Open;
   result.read = &Read;
+  result.write = &Write;
   result.utimens = &Utimens;
   result.release = &Release;
   result.unlink = &Unlink;

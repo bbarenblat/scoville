@@ -95,6 +95,11 @@ class File {
   void UTimeNs(const char* path, const timespec& access,
                const timespec& modification) const;
 
+  // Writes the specified byte vector to the file at the given offset.  Returns
+  // the number of bytes written, which will always be the number of bytes given
+  // as input.
+  size_t Write(off_t, const std::vector<std::uint8_t>&);
+
  private:
   File() {}
 

@@ -141,6 +141,21 @@ void File::UTimeNs(const char* const path, const timespec& access,
   }
 }
 
+size_t File::Write(const off_t offset,
+                   const std::vector<std::uint8_t>& to_write) {
+  size_t bytes_written = 0;
+  while (bytes_written < to_write.size()) {
+    const ssize_t pwrite_result = pwrite(
+        fd_, to_write.data() + bytes_written, to_write.size() - bytes_written,
+        offset + static_cast<off_t>(bytes_written));
+    if (pwrite_result == -1) {
+      throw SystemError();
+    }
+    bytes_written += static_cast<size_t>(pwrite_result);
+  }
+  return bytes_written;
+}
+
 int File::Duplicate() const {
   int result;
   if ((result = dup(fd_)) == -1) {
