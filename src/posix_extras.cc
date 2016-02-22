@@ -38,6 +38,12 @@ std::system_error SystemError() {
   return std::system_error(errno, std::system_category());
 }
 
+void ValidatePath(const char* const path) {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+}
+
 }  // namespace
 
 File::File(const char* const path, const int flags, const mode_t mode)
@@ -68,19 +74,14 @@ struct stat File::Stat() const {
 }
 
 void File::ChModAt(const char* const path, const mode_t mode) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
+  ValidatePath(path);
   if (fchmodat(fd_, path, mode, 0) == -1) {
     throw SystemError();
   }
 }
 
 struct stat File::LinkStatAt(const char* const path) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(path);
   struct stat result;
   if (fstatat(fd_, path, &result, AT_SYMLINK_NOFOLLOW) == -1) {
     throw SystemError();
@@ -89,10 +90,7 @@ struct stat File::LinkStatAt(const char* const path) const {
 }
 
 void File::MkDir(const char* const path, const mode_t mode) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(path);
   if (mkdirat(fd_, path, mode | S_IFDIR) == -1) {
     throw SystemError();
   }
@@ -100,10 +98,7 @@ void File::MkDir(const char* const path, const mode_t mode) const {
 
 void File::MkNod(const char* const path, const mode_t mode,
                  const dev_t dev) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(path);
   if (mknodat(fd_, path, mode, dev) == -1) {
     throw SystemError();
   }
@@ -111,10 +106,7 @@ void File::MkNod(const char* const path, const mode_t mode,
 
 File File::OpenAt(const char* const path, const int flags,
                   const mode_t mode) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(path);
   File result;
   if ((result.fd_ = openat(fd_, path, flags, mode)) == -1) {
     throw SystemError();
@@ -140,30 +132,22 @@ std::vector<std::uint8_t> File::Read(off_t offset, size_t bytes) const {
 }
 
 void File::RenameAt(const char* old_path, const char* new_path) const {
-  if (old_path[0] == '/' || new_path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(old_path);
+  ValidatePath(new_path);
   if (renameat(fd_, old_path, fd_, new_path) == -1) {
     throw SystemError();
   }
 }
 
 void File::RmDirAt(const char* const path) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(path);
   if (unlinkat(fd_, path, AT_REMOVEDIR) == -1) {
     throw SystemError();
   }
 }
 
 void File::UnlinkAt(const char* const path) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(path);
   if (unlinkat(fd_, path, 0) == -1) {
     throw SystemError();
   }
@@ -171,10 +155,7 @@ void File::UnlinkAt(const char* const path) const {
 
 void File::UTimeNs(const char* const path, const timespec& access,
                    const timespec& modification) const {
-  if (path[0] == '/') {
-    throw std::invalid_argument("absolute path");
-  }
-
+  ValidatePath(path);
   std::array<const timespec, 2> times{{access, modification}};
   if (utimensat(fd_, path, times.data(), AT_SYMLINK_NOFOLLOW) == -1) {
     throw SystemError();
