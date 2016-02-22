@@ -125,6 +125,19 @@ std::vector<std::uint8_t> File::Read(off_t offset, size_t bytes) const {
   return result;
 }
 
+std::string File::ReadLinkAt(const char* const path) const {
+  ValidatePath(path);
+  std::vector<char> result(64, '\0');
+  size_t bytes_read;
+
+  while ((bytes_read = static_cast<size_t>(CheckSyscall(readlinkat(
+              fd_, path, result.data(), result.size())))) == result.size()) {
+    // We filled the entire buffer.  There may be more data we missed.
+    result.resize(result.size() * 2);
+  }
+  return std::string(result.data(), result.data() + bytes_read);
+}
+
 void File::RenameAt(const char* old_path, const char* new_path) const {
   ValidatePath(old_path);
   ValidatePath(new_path);
@@ -134,6 +147,11 @@ void File::RenameAt(const char* old_path, const char* new_path) const {
 void File::RmDirAt(const char* const path) const {
   ValidatePath(path);
   CheckSyscall(unlinkat(fd_, path, AT_REMOVEDIR));
+}
+
+void File::SymLinkAt(const char* const target, const char* const source) const {
+  ValidatePath(source);
+  CheckSyscall(symlinkat(target, fd_, source));
 }
 
 void File::UnlinkAt(const char* const path) const {

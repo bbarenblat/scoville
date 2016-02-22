@@ -93,6 +93,11 @@ class File {
   // fewer bytes are returned.
   std::vector<std::uint8_t> Read(off_t, size_t) const;
 
+  // Reads the contents of a symbolic link.  The path to the symbolic link is
+  // interpreted relative to the file descriptor and must indeed be relative
+  // (i.e., it must not start with '/').
+  std::string ReadLinkAt(const char* path) const;
+
   // Renames a file from old_path to new_path.  Both paths are interpreted
   // relative to the file descriptor, and both must indeed be relative (i.e.,
   // they must not start with '/').
@@ -101,6 +106,11 @@ class File {
   // Removes the directory at the path relative to the file descriptor.  The
   // path must indeed be relative (i.e., it must not start with '/').
   void RmDirAt(const char* path) const;
+
+  // Creates a symlink at source pointing to target.  target is unvalidated.
+  // source is interpreted as a path relative to the file descriptor and must
+  // indeed be relative (i.e., it must not start with '/').
+  void SymLinkAt(const char* target, const char* source) const;
 
   // Removes the file at the path relative to the file descriptor.  The path
   // must indeed be relative (i.e., it must not start with '/').

@@ -168,6 +168,19 @@ int Unlink(const char* c_path) {
   }
 }
 
+int Symlink(const char* const target, const char* const source) {
+  root_->SymLinkAt(target, EncodePath(source).c_str());
+  return 0;
+}
+
+int Readlink(const char* const path, char* const output,
+             const size_t output_size) {
+  const std::string target = root_->ReadLinkAt(EncodePath(path).c_str());
+  std::strncpy(output, target.c_str(), output_size);
+  output[output_size - 1] = '\0';
+  return 0;
+}
+
 int Mkdir(const char* const c_path, const mode_t mode) {
   const std::string path(c_path);
   if (path == "/") {
@@ -263,6 +276,9 @@ fuse_operations FuseOperations(File* const root) {
   result.utimens = CATCH_AND_RETURN_EXCEPTIONS(Utimens);
   result.release = CATCH_AND_RETURN_EXCEPTIONS(Release);
   result.unlink = CATCH_AND_RETURN_EXCEPTIONS(Unlink);
+
+  result.symlink = CATCH_AND_RETURN_EXCEPTIONS(Symlink);
+  result.readlink = CATCH_AND_RETURN_EXCEPTIONS(Readlink);
 
   result.mkdir = CATCH_AND_RETURN_EXCEPTIONS(Mkdir);
   result.opendir = CATCH_AND_RETURN_EXCEPTIONS(Opendir);
