@@ -198,6 +198,7 @@ fuse_operations FuseOperations(File* const root) {
   root_ = root;
 
   fuse_operations result;
+  std::memset(&result, 0, sizeof(result));
 
   result.flag_nullpath_ok = true;
   result.flag_nopath = true;
