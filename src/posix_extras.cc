@@ -44,13 +44,19 @@ void ValidatePath(const char* const path) {
   }
 }
 
+template <typename T>
+T CheckSyscall(const T result) {
+  if (result == -1) {
+    throw SystemError();
+  }
+  return result;
+}
+
 }  // namespace
 
 File::File(const char* const path, const int flags, const mode_t mode)
     : path_(path) {
-  if ((fd_ = open(path, flags, mode)) == -1) {
-    throw SystemError();
-  }
+  fd_ = CheckSyscall(open(path, flags, mode));
   VLOG(1) << "opening file descriptor " << fd_;
 }
 
@@ -60,57 +66,47 @@ File::File(const File& other) : path_(other.path_), fd_(other.Duplicate()) {
 
 File::~File() noexcept {
   VLOG(1) << "closing file descriptor " << fd_;
-  if (close(fd_) == -1) {
+  try {
+    CheckSyscall(close(fd_));
+  } catch (...) {
     LOG(ERROR) << "failed to close file descriptor " << fd_;
   }
 }
 
 struct stat File::Stat() const {
   struct stat result;
-  if (fstat(fd_, &result) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(fstat(fd_, &result));
   return result;
 }
 
 void File::ChModAt(const char* const path, const mode_t mode) const {
   ValidatePath(path);
-  if (fchmodat(fd_, path, mode, 0) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(fchmodat(fd_, path, mode, 0));
 }
 
 struct stat File::LinkStatAt(const char* const path) const {
   ValidatePath(path);
   struct stat result;
-  if (fstatat(fd_, path, &result, AT_SYMLINK_NOFOLLOW) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(fstatat(fd_, path, &result, AT_SYMLINK_NOFOLLOW));
   return result;
 }
 
 void File::MkDir(const char* const path, const mode_t mode) const {
   ValidatePath(path);
-  if (mkdirat(fd_, path, mode | S_IFDIR) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(mkdirat(fd_, path, mode | S_IFDIR));
 }
 
 void File::MkNod(const char* const path, const mode_t mode,
                  const dev_t dev) const {
   ValidatePath(path);
-  if (mknodat(fd_, path, mode, dev) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(mknodat(fd_, path, mode, dev));
 }
 
 File File::OpenAt(const char* const path, const int flags,
                   const mode_t mode) const {
   ValidatePath(path);
   File result;
-  if ((result.fd_ = openat(fd_, path, flags, mode)) == -1) {
-    throw SystemError();
-  }
+  result.fd_ = CheckSyscall(openat(fd_, path, flags, mode));
   result.path_ = path_ + "/" + path;
   return result;
 }
@@ -119,13 +115,11 @@ std::vector<std::uint8_t> File::Read(off_t offset, size_t bytes) const {
   std::vector<std::uint8_t> result(bytes, 0);
   size_t cursor = 0;
   ssize_t bytes_read;
-  while (0 < (bytes_read = pread(fd_, result.data() + cursor, bytes, offset))) {
+  while (0 < (bytes_read = CheckSyscall(
+                  pread(fd_, result.data() + cursor, bytes, offset)))) {
     cursor += static_cast<size_t>(bytes_read);
     offset += bytes_read;
     bytes -= static_cast<size_t>(bytes_read);
-  }
-  if (bytes_read == -1) {
-    throw SystemError();
   }
   result.resize(cursor);
   return result;
@@ -134,56 +128,38 @@ std::vector<std::uint8_t> File::Read(off_t offset, size_t bytes) const {
 void File::RenameAt(const char* old_path, const char* new_path) const {
   ValidatePath(old_path);
   ValidatePath(new_path);
-  if (renameat(fd_, old_path, fd_, new_path) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(renameat(fd_, old_path, fd_, new_path));
 }
 
 void File::RmDirAt(const char* const path) const {
   ValidatePath(path);
-  if (unlinkat(fd_, path, AT_REMOVEDIR) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(unlinkat(fd_, path, AT_REMOVEDIR));
 }
 
 void File::UnlinkAt(const char* const path) const {
   ValidatePath(path);
-  if (unlinkat(fd_, path, 0) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(unlinkat(fd_, path, 0));
 }
 
 void File::UTimeNs(const char* const path, const timespec& access,
                    const timespec& modification) const {
   ValidatePath(path);
   std::array<const timespec, 2> times{{access, modification}};
-  if (utimensat(fd_, path, times.data(), AT_SYMLINK_NOFOLLOW) == -1) {
-    throw SystemError();
-  }
+  CheckSyscall(utimensat(fd_, path, times.data(), AT_SYMLINK_NOFOLLOW));
 }
 
 size_t File::Write(const off_t offset,
                    const std::vector<std::uint8_t>& to_write) {
   size_t bytes_written = 0;
   while (bytes_written < to_write.size()) {
-    const ssize_t pwrite_result = pwrite(
+    bytes_written += static_cast<size_t>(CheckSyscall(pwrite(
         fd_, to_write.data() + bytes_written, to_write.size() - bytes_written,
-        offset + static_cast<off_t>(bytes_written));
-    if (pwrite_result == -1) {
-      throw SystemError();
-    }
-    bytes_written += static_cast<size_t>(pwrite_result);
+        offset + static_cast<off_t>(bytes_written))));
   }
   return bytes_written;
 }
 
-int File::Duplicate() const {
-  int result;
-  if ((result = dup(fd_)) == -1) {
-    throw SystemError();
-  }
-  return result;
-}
+int File::Duplicate() const { return CheckSyscall(dup(fd_)); }
 
 Directory::Directory(const File& file) {
   // "After a successful call to fdopendir(), fd is used internally by the
@@ -196,18 +172,14 @@ Directory::Directory(const File& file) {
 }
 
 Directory::~Directory() noexcept {
-  if (closedir(stream_) == -1) {
+  try {
+    CheckSyscall(closedir(stream_));
+  } catch (...) {
     LOG(ERROR) << "failed to close directory stream";
   }
 }
 
-long Directory::offset() const {
-  long result;
-  if ((result = telldir(stream_)) == -1) {
-    throw SystemError();
-  }
-  return result;
-}
+long Directory::offset() const { return CheckSyscall(telldir(stream_)); }
 
 void Directory::Seek(const long offset) noexcept { seekdir(stream_, offset); }
 
