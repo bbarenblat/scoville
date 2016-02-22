@@ -66,6 +66,10 @@ class File {
   // indeed be relative (i.e., it must not start with '/').
   struct stat LinkStatAt(const char* path) const;
 
+  // Creates a file or directory at the path relative to the file descriptor.
+  // The path must indeed be relative (i.e., it must not start with '/').
+  void MkNod(const char* path, mode_t mode, dev_t dev) const;
+
   // Calls openat(2) on the path relative to the file descriptor.  The path must
   // indeed be relative (i.e., it must not start with '/').
   File OpenAt(const char* const path, const int flags) const {

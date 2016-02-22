@@ -75,6 +75,17 @@ struct stat File::LinkStatAt(const char* const path) const {
   return result;
 }
 
+void File::MkNod(const char* const path, const mode_t mode,
+                 const dev_t dev) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  if (mknodat(fd_, path, mode, dev) == -1) {
+    throw SystemError();
+  }
+}
+
 File File::OpenAt(const char* const path, const int flags,
                   const mode_t mode) const {
   if (path[0] == '/') {

@@ -75,7 +75,7 @@ int Getattr(const char* const path, struct stat* output) noexcept {
 }
 
 template <typename T>
-int OpenResource(const char* const path, const int flags, const mode_t mode,
+int OpenResource(const char* const path, const int flags,
                  uint64_t* const handle) noexcept {
   try {
     std::unique_ptr<T> t(new T(
@@ -85,7 +85,7 @@ int OpenResource(const char* const path, const int flags, const mode_t mode,
             *root_
             :
             // Trim the leading slash so OpenAt will treat it relative to root_.
-            root_->OpenAt(path + 1, flags, mode)));
+            root_->OpenAt(path + 1, flags)));
 
     static_assert(sizeof(*handle) == sizeof(std::uintptr_t),
                   "FUSE file handles are a different size than pointers");
@@ -107,27 +107,27 @@ int ReleaseResource(const uint64_t handle) noexcept {
   return 0;
 }
 
-int Open(const char* const path, fuse_file_info* const file_info) noexcept {
-  return OpenResource<File>(path, file_info->flags, 0777, &file_info->fh);
-}
-
-int Create(const char* const path, const mode_t mode,
-           fuse_file_info* const file_info) noexcept {
+int Mknod(const char* const c_path, const mode_t mode,
+          const dev_t dev) noexcept {
   try {
     if (std::strcmp(path, "/") == 0) {
       // They're asking to create the mount point.  Huh?
       return -EEXIST;
     }
 
-    return OpenResource<File>(path,
-                              file_info->flags | O_CREAT | O_WRONLY | O_EXCL,
-                              mode, &file_info->fh);
+    // Trim the leading slash so OpenAt will treat it relative to root_.
+    root_->MkNod(path + 1, mode, dev);
+    return 0;
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
-    LOG(ERROR) << "create: caught unexpected value";
+    LOG(ERROR) << "mknod: caught unexpected value";
     return -ENOTRECOVERABLE;
   }
+}
+
+int Open(const char* const path, fuse_file_info* const file_info) noexcept {
+  return OpenResource<File>(path, file_info->flags, &file_info->fh);
 }
 
 int Release(const char*, fuse_file_info* const file_info) noexcept {
@@ -153,7 +153,7 @@ int Unlink(const char* c_path) noexcept {
 }
 
 int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
-  return OpenResource<Directory>(path, O_DIRECTORY, 0777, &file_info->fh);
+  return OpenResource<Directory>(path, O_DIRECTORY, &file_info->fh);
 }
 
 int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
@@ -209,8 +209,8 @@ fuse_operations FuseOperations(File* const root) {
 
   result.getattr = &Getattr;
 
+  result.mknod = &Mknod;
   result.open = &Open;
-  result.create = &Create;
   result.release = &Release;
   result.unlink = &Unlink;
 
