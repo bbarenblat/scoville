@@ -16,9 +16,11 @@
 
 #include <array>
 #include <cerrno>
+#include <cstdint>
 #include <experimental/optional>
 #include <stdexcept>
 #include <system_error>
+#include <vector>
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -98,6 +100,22 @@ File File::OpenAt(const char* const path, const int flags,
     throw SystemError();
   }
   result.path_ = path_ + "/" + path;
+  return result;
+}
+
+std::vector<std::uint8_t> File::Read(off_t offset, size_t bytes) const {
+  std::vector<std::uint8_t> result(bytes, 0);
+  size_t cursor = 0;
+  ssize_t bytes_read;
+  while (0 < (bytes_read = pread(fd_, result.data() + cursor, bytes, offset))) {
+    cursor += static_cast<size_t>(bytes_read);
+    offset += bytes_read;
+    bytes -= static_cast<size_t>(bytes_read);
+  }
+  if (bytes_read == -1) {
+    throw SystemError();
+  }
+  result.resize(cursor);
   return result;
 }
 

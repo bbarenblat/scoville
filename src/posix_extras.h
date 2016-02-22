@@ -15,8 +15,10 @@
 #ifndef POSIX_EXTRAS_H_
 #define POSIX_EXTRAS_H_
 
+#include <cstdint>
 #include <experimental/optional>
 #include <string>
+#include <vector>
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -77,6 +79,11 @@ class File {
     return OpenAt(path, flags, 0);
   }
   File OpenAt(const char* path, int flags, mode_t mode) const;
+
+  // Reads exactly the specified number of bytes from the file at the given
+  // offset, unless doing so would run past the end of the file, in which case
+  // fewer bytes are returned.
+  std::vector<std::uint8_t> Read(off_t, size_t) const;
 
   // Removes the file at the path relative to the file descriptor.  The path
   // must indeed be relative (i.e., it must not start with '/').

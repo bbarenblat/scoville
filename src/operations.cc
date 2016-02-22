@@ -25,8 +25,10 @@
 #include <new>
 #include <system_error>
 #include <type_traits>
+#include <vector>
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <glog/logging.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -66,6 +68,19 @@ int Getattr(const char* const path, struct stat* output) noexcept {
     // Trim the leading slash so LinkStatAt will treat it relative to root_.
     LOG(INFO) << "getattr: trimming leading slash";
     *output = root_->LinkStatAt(path + 1);
+    return 0;
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "getattr: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
+int Fgetattr(const char*, struct stat* const output,
+             struct fuse_file_info* const file_info) noexcept {
+  try {
+    *output = reinterpret_cast<File*>(file_info->fh)->Stat();
     return 0;
   } catch (const std::system_error& e) {
     return -e.code().value();
@@ -129,6 +144,22 @@ int Mknod(const char* const c_path, const mode_t mode,
 
 int Open(const char* const path, fuse_file_info* const file_info) noexcept {
   return OpenResource<File>(path, file_info->flags, &file_info->fh);
+}
+
+int Read(const char*, char* const buffer, const size_t bytes,
+         const off_t offset, fuse_file_info* const file_info) noexcept {
+  LOG(INFO) << "read with offset " << offset;
+  try {
+    auto* const file = reinterpret_cast<File*>(file_info->fh);
+    const std::vector<std::uint8_t> read = file->Read(offset, bytes);
+    std::memcpy(buffer, read.data(), read.size());
+    return static_cast<int>(read.size());
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "read: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
 }
 
 int Utimens(const char* const path, const timespec times[2]) noexcept {
@@ -230,9 +261,11 @@ fuse_operations FuseOperations(File* const root) {
   result.destroy = &Destroy;
 
   result.getattr = &Getattr;
+  result.fgetattr = &Fgetattr;
 
   result.mknod = &Mknod;
   result.open = &Open;
+  result.read = &Read;
   result.utimens = &Utimens;
   result.release = &Release;
   result.unlink = &Unlink;
