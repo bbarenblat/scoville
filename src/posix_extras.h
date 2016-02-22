@@ -69,8 +69,12 @@ class File {
   // indeed be relative (i.e., it must not start with '/').
   struct stat LinkStatAt(const char* path) const;
 
-  // Creates a file or directory at the path relative to the file descriptor.
-  // The path must indeed be relative (i.e., it must not start with '/').
+  // Creates a directory at the path relative to the file descriptor.  The path
+  // must indeed be relative (i.e., it must not start with '/').
+  void MkDir(const char* path, mode_t mode) const;
+
+  // Creates a file at the path relative to the file descriptor.  The path must
+  // indeed be relative (i.e., it must not start with '/').
   void MkNod(const char* path, mode_t mode, dev_t dev) const;
 
   // Calls openat(2) on the path relative to the file descriptor.  The path must
@@ -84,6 +88,10 @@ class File {
   // offset, unless doing so would run past the end of the file, in which case
   // fewer bytes are returned.
   std::vector<std::uint8_t> Read(off_t, size_t) const;
+
+  // Removes the directory at the path relative to the file descriptor.  The
+  // path must indeed be relative (i.e., it must not start with '/').
+  void RmDirAt(const char* path) const;
 
   // Removes the file at the path relative to the file descriptor.  The path
   // must indeed be relative (i.e., it must not start with '/').

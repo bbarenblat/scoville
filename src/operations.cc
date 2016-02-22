@@ -123,8 +123,7 @@ int Mknod(const char* const c_path, const mode_t mode,
   try {
     const std::string path(c_path);
     if (path == "/") {
-      // They're asking to create the mount point.  Huh?
-      return -EEXIST;
+      return -EISDIR;
     } else {
       root_->MkNod(EncodePath(path).c_str(), mode, dev);
       return 0;
@@ -208,6 +207,24 @@ int Unlink(const char* c_path) noexcept {
   }
 }
 
+int Mkdir(const char* const c_path, const mode_t mode) noexcept {
+  try {
+    const std::string path(c_path);
+    if (path == "/") {
+      // They're asking to create the mount point.  Huh?
+      return -EEXIST;
+    } else {
+      root_->MkDir(EncodePath(path).c_str(), mode);
+      return 0;
+    }
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "mknod: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
 int Opendir(const char* const path, fuse_file_info* const file_info) noexcept {
   return OpenResource<Directory>(path, O_DIRECTORY, &file_info->fh);
 }
@@ -248,6 +265,24 @@ int Releasedir(const char*, fuse_file_info* const file_info) noexcept {
   return ReleaseResource<Directory>(file_info->fh);
 }
 
+int Rmdir(const char* c_path) noexcept {
+  try {
+    const std::string path(c_path);
+    if (path == "/") {
+      // Removing the root is probably a bad idea.
+      return -EPERM;
+    } else {
+      root_->RmDirAt(EncodePath(path).c_str());
+      return 0;
+    }
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "unlink: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
 }  // namespace
 
 fuse_operations FuseOperations(File* const root) {
@@ -274,9 +309,11 @@ fuse_operations FuseOperations(File* const root) {
   result.release = &Release;
   result.unlink = &Unlink;
 
+  result.mkdir = &Mkdir;
   result.opendir = &Opendir;
   result.readdir = &Readdir;
   result.releasedir = &Releasedir;
+  result.rmdir = &Rmdir;
 
   return result;
 }

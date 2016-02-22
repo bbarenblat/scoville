@@ -78,6 +78,16 @@ struct stat File::LinkStatAt(const char* const path) const {
   return result;
 }
 
+void File::MkDir(const char* const path, const mode_t mode) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  if (mkdirat(fd_, path, mode | S_IFDIR) == -1) {
+    throw SystemError();
+  }
+}
+
 void File::MkNod(const char* const path, const mode_t mode,
                  const dev_t dev) const {
   if (path[0] == '/') {
@@ -117,6 +127,16 @@ std::vector<std::uint8_t> File::Read(off_t offset, size_t bytes) const {
   }
   result.resize(cursor);
   return result;
+}
+
+void File::RmDirAt(const char* const path) const {
+  if (path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  if (unlinkat(fd_, path, AT_REMOVEDIR) == -1) {
+    throw SystemError();
+  }
 }
 
 void File::UnlinkAt(const char* const path) const {
