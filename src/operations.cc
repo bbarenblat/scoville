@@ -23,6 +23,8 @@
 #include <experimental/optional>
 #include <memory>
 #include <new>
+#include <stdexcept>
+#include <string>
 #include <system_error>
 #include <type_traits>
 #include <vector>
@@ -48,26 +50,25 @@ mode_t DirectoryTypeToFileType(const unsigned char type) noexcept {
   return static_cast<mode_t>(DTTOIF(type));
 }
 
+std::string EncodePath(const std::string& path) {
+  if (path.at(0) != '/') {
+    throw std::system_error(ENOENT, std::system_category());
+  }
+  return path.substr(1);
+}
+
 void* Initialize(fuse_conn_info*) noexcept { return nullptr; }
 
 void Destroy(void*) noexcept {}
 
-int Getattr(const char* const path, struct stat* output) noexcept {
+int Getattr(const char* const c_path, struct stat* output) noexcept {
   try {
-    if (path[0] == '\0') {
-      LOG(ERROR) << "getattr: called on path not starting with /";
-      return -ENOENT;
-    }
-
-    if (std::strcmp(path, "/") == 0) {
-      // They're asking for information about the mount point.
+    const std::string path(c_path);
+    if (path == "/") {
       *output = root_->Stat();
-      return 0;
+    } else {
+      *output = root_->LinkStatAt(EncodePath(path).c_str());
     }
-
-    // Trim the leading slash so LinkStatAt will treat it relative to root_.
-    LOG(INFO) << "getattr: trimming leading slash";
-    *output = root_->LinkStatAt(path + 1);
     return 0;
   } catch (const std::system_error& e) {
     return -e.code().value();
@@ -91,18 +92,12 @@ int Fgetattr(const char*, struct stat* const output,
 }
 
 template <typename T>
-int OpenResource(const char* const path, const int flags,
+int OpenResource(const char* const c_path, const int flags,
                  uint64_t* const handle) noexcept {
   try {
+    const std::string path(c_path);
     std::unique_ptr<T> t(new T(
-        std::strcmp(path, "/") == 0
-            ?
-            // They're asking to open the mount point.
-            *root_
-            :
-            // Trim the leading slash so OpenAt will treat it relative to root_.
-            root_->OpenAt(path + 1, flags)));
-
+        path == "/" ? *root_ : root_->OpenAt(EncodePath(path).c_str(), flags)));
     static_assert(sizeof(*handle) == sizeof(std::uintptr_t),
                   "FUSE file handles are a different size than pointers");
     *handle = reinterpret_cast<std::uintptr_t>(t.release());
@@ -126,14 +121,14 @@ int ReleaseResource(const uint64_t handle) noexcept {
 int Mknod(const char* const c_path, const mode_t mode,
           const dev_t dev) noexcept {
   try {
-    if (std::strcmp(path, "/") == 0) {
+    const std::string path(c_path);
+    if (path == "/") {
       // They're asking to create the mount point.  Huh?
       return -EEXIST;
+    } else {
+      root_->MkNod(EncodePath(path).c_str(), mode, dev);
+      return 0;
     }
-
-    // Trim the leading slash so OpenAt will treat it relative to root_.
-    root_->MkNod(path + 1, mode, dev);
-    return 0;
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
@@ -164,16 +159,9 @@ int Read(const char*, char* const buffer, const size_t bytes,
 
 int Utimens(const char* const path, const timespec times[2]) noexcept {
   try {
-    root_->UTimeNs(
-        std::strcmp(path, "/") == 0
-            ?
-            // Update the times on the mount point.
-            "."
-            :
-            // Trim the leading slash so UTimeNs will treat it relative to
-            // root_.
-            path + 1,
-        times[0], times[1]);
+    const std::string path(c_path);
+    root_->UTimeNs(path == "/" ? "." : EncodePath(path).c_str(), times[0],
+                   times[1]);
     return 0;
   } catch (const std::system_error& e) {
     return -e.code().value();
@@ -189,14 +177,14 @@ int Release(const char*, fuse_file_info* const file_info) noexcept {
 
 int Unlink(const char* c_path) noexcept {
   try {
-    if (std::strcmp(path, "/") == 0) {
+    const std::string path(c_path);
+    if (path == "/") {
       // Removing the root is probably a bad idea.
       return -EPERM;
+    } else {
+      root_->UnlinkAt(EncodePath(path).c_str());
+      return 0;
     }
-
-    // Trim the leading slash so UnlinkAt will treat it relative to root_.
-    root_->UnlinkAt(path + 1);
-    return 0;
   } catch (const std::system_error& e) {
     return -e.code().value();
   } catch (...) {
