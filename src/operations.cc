@@ -224,6 +224,11 @@ int Releasedir(const char*, fuse_file_info* const file_info) {
   return ReleaseResource<Directory>(file_info->fh);
 }
 
+int Ftruncate(const char*, const off_t size, fuse_file_info* const file_info) {
+  reinterpret_cast<File*>(file_info->fh)->Truncate(size);
+  return 0;
+}
+
 int Rmdir(const char* c_path) {
   const std::string path(c_path);
   if (path == "/") {
@@ -275,6 +280,7 @@ fuse_operations FuseOperations(File* const root) {
   result.write = CATCH_AND_RETURN_EXCEPTIONS(Write);
   result.utimens = CATCH_AND_RETURN_EXCEPTIONS(Utimens);
   result.release = CATCH_AND_RETURN_EXCEPTIONS(Release);
+  result.ftruncate = CATCH_AND_RETURN_EXCEPTIONS(Ftruncate);
   result.unlink = CATCH_AND_RETURN_EXCEPTIONS(Unlink);
 
   result.symlink = CATCH_AND_RETURN_EXCEPTIONS(Symlink);

@@ -154,6 +154,8 @@ void File::SymLinkAt(const char* const target, const char* const source) const {
   CheckSyscall(symlinkat(target, fd_, source));
 }
 
+void File::Truncate(const off_t size) { CheckSyscall(ftruncate(fd_, size)); }
+
 void File::UnlinkAt(const char* const path) const {
   ValidatePath(path);
   CheckSyscall(unlinkat(fd_, path, 0));

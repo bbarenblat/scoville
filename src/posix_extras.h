@@ -112,6 +112,9 @@ class File {
   // indeed be relative (i.e., it must not start with '/').
   void SymLinkAt(const char* target, const char* source) const;
 
+  // Truncates the file to the specified size.
+  void Truncate(off_t);
+
   // Removes the file at the path relative to the file descriptor.  The path
   // must indeed be relative (i.e., it must not start with '/').
   void UnlinkAt(const char* path) const;
