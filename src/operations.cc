@@ -79,11 +79,12 @@ int Fgetattr(const char*, struct stat* const output,
 
 template <typename T>
 int OpenResource(const char* const c_path, const int flags,
-                 uint64_t* const handle) {
+                 uint64_t* const handle, const mode_t mode = 0) {
   try {
     const std::string path(c_path);
-    std::unique_ptr<T> t(new T(
-        path == "/" ? *root_ : root_->OpenAt(EncodePath(path).c_str(), flags)));
+    std::unique_ptr<T> t(
+        new T(path == "/" ? *root_ : root_->OpenAt(EncodePath(path).c_str(),
+                                                   flags, mode)));
     static_assert(sizeof(*handle) == sizeof(std::uintptr_t),
                   "FUSE file handles are a different size than pointers");
     *handle = reinterpret_cast<std::uintptr_t>(t.release());
@@ -124,6 +125,12 @@ int Rename(const char* const c_old_path, const char* const c_new_path) {
     root_->RenameAt(EncodePath(old_path).c_str(), EncodePath(new_path).c_str());
     return 0;
   }
+}
+
+int Create(const char* const path, const mode_t mode,
+           fuse_file_info* const file_info) {
+  return OpenResource<File>(path, file_info->flags | O_CREAT, &file_info->fh,
+                            mode);
 }
 
 int Open(const char* const path, fuse_file_info* const file_info) {
@@ -275,6 +282,7 @@ fuse_operations FuseOperations(File* const root) {
   result.mknod = CATCH_AND_RETURN_EXCEPTIONS(Mknod);
   result.chmod = CATCH_AND_RETURN_EXCEPTIONS(Chmod);
   result.rename = CATCH_AND_RETURN_EXCEPTIONS(Rename);
+  result.create = CATCH_AND_RETURN_EXCEPTIONS(Create);
   result.open = CATCH_AND_RETURN_EXCEPTIONS(Open);
   result.read = CATCH_AND_RETURN_EXCEPTIONS(Read);
   result.write = CATCH_AND_RETURN_EXCEPTIONS(Write);
