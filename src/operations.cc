@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <glog/logging.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -60,6 +61,17 @@ std::string EncodePath(const std::string& path) {
 void* Initialize(fuse_conn_info*) noexcept { return nullptr; }
 
 void Destroy(void*) noexcept {}
+
+int Statfs(const char* const c_path, struct statvfs* const output) {
+  const std::string path(c_path);
+  if (path == "/") {
+    *output = root_->StatVFs();
+  } else {
+    *output =
+        root_->OpenAt(EncodePath(path).c_str(), O_RDONLY | O_PATH).StatVFs();
+  }
+  return 0;
+}
 
 int Getattr(const char* const c_path, struct stat* output) {
   const std::string path(c_path);
@@ -275,6 +287,8 @@ fuse_operations FuseOperations(File* const root) {
 
   result.init = Initialize;
   result.destroy = Destroy;
+
+  result.statfs = CATCH_AND_RETURN_EXCEPTIONS(Statfs);
 
   result.getattr = CATCH_AND_RETURN_EXCEPTIONS(Getattr);
   result.fgetattr = CATCH_AND_RETURN_EXCEPTIONS(Fgetattr);

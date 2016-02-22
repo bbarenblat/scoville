@@ -22,6 +22,7 @@
 
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -106,6 +107,10 @@ class File {
   // Removes the directory at the path relative to the file descriptor.  The
   // path must indeed be relative (i.e., it must not start with '/').
   void RmDirAt(const char* path) const;
+
+  // Retrieves information about the file system containing the referent of the
+  // file descriptor.
+  struct statvfs StatVFs() const;
 
   // Creates a symlink at source pointing to target.  target is unvalidated.
   // source is interpreted as a path relative to the file descriptor and must

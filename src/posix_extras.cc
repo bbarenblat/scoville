@@ -27,6 +27,7 @@
 #include <glog/logging.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -147,6 +148,12 @@ void File::RenameAt(const char* old_path, const char* new_path) const {
 void File::RmDirAt(const char* const path) const {
   ValidatePath(path);
   CheckSyscall(unlinkat(fd_, path, AT_REMOVEDIR));
+}
+
+struct statvfs File::StatVFs() const {
+  struct statvfs result;
+  CheckSyscall(fstatvfs(fd_, &result));
+  return result;
 }
 
 void File::SymLinkAt(const char* const target, const char* const source) const {
