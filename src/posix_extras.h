@@ -89,6 +89,11 @@ class File {
   // fewer bytes are returned.
   std::vector<std::uint8_t> Read(off_t, size_t) const;
 
+  // Renames a file from old_path to new_path.  Both paths are interpreted
+  // relative to the file descriptor, and both must indeed be relative (i.e.,
+  // they must not start with '/').
+  void RenameAt(const char* old_path, const char* new_path) const;
+
   // Removes the directory at the path relative to the file descriptor.  The
   // path must indeed be relative (i.e., it must not start with '/').
   void RmDirAt(const char* path) const;

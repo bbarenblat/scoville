@@ -25,6 +25,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <glog/logging.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -127,6 +128,16 @@ std::vector<std::uint8_t> File::Read(off_t offset, size_t bytes) const {
   }
   result.resize(cursor);
   return result;
+}
+
+void File::RenameAt(const char* old_path, const char* new_path) const {
+  if (old_path[0] == '/' || new_path[0] == '/') {
+    throw std::invalid_argument("absolute path");
+  }
+
+  if (renameat(fd_, old_path, fd_, new_path) == -1) {
+    throw SystemError();
+  }
 }
 
 void File::RmDirAt(const char* const path) const {

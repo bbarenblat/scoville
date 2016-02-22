@@ -136,6 +136,39 @@ int Mknod(const char* const c_path, const mode_t mode,
   }
 }
 
+int Chmod(const char* const c_path, const mode_t mode) noexcept {
+  try {
+    const std::string path(c_path);
+    root_->ChModAt(path == "/" ? "." : EncodePath(path).c_str(), mode);
+    return 0;
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "getattr: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
+int Rename(const char* const c_old_path,
+           const char* const c_new_path) noexcept {
+  try {
+    const std::string old_path(c_old_path);
+    const std::string new_path(c_new_path);
+    if (old_path == "/" || new_path == "/") {
+      return -EINVAL;
+    } else {
+      root_->RenameAt(EncodePath(old_path).c_str(),
+                      EncodePath(new_path).c_str());
+      return 0;
+    }
+  } catch (const std::system_error& e) {
+    return -e.code().value();
+  } catch (...) {
+    LOG(ERROR) << "mknod: caught unexpected value";
+    return -ENOTRECOVERABLE;
+  }
+}
+
 int Open(const char* const path, fuse_file_info* const file_info) noexcept {
   return OpenResource<File>(path, file_info->flags, &file_info->fh);
 }
@@ -302,6 +335,7 @@ fuse_operations FuseOperations(File* const root) {
   result.fgetattr = &Fgetattr;
 
   result.mknod = &Mknod;
+  result.rename = &Rename;
   result.open = &Open;
   result.read = &Read;
   result.write = &Write;
