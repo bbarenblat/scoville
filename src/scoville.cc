@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <system_error>
+#include <vector>
 
 #include <fcntl.h>
 #include <gflags/gflags.h>
@@ -49,5 +50,12 @@ int main(int argc, char* argv[]) {
   }
   LOG(INFO) << "overlaying " << root->path();
   const fuse_operations operations = scoville::FuseOperations(root.get());
-  return fuse_main(argc, argv, &operations, nullptr);
+
+  // Add -o nonempty to argv so FUSE won't complain about overlaying.
+  char hyphen_o[] = "-o";
+  char nonempty[] = "nonempty";
+  std::vector<char*> new_argv(argv, argv + argc);
+  new_argv.emplace_back(hyphen_o);
+  new_argv.emplace_back(nonempty);
+  return fuse_main(new_argv.size(), new_argv.data(), &operations, nullptr);
 }
