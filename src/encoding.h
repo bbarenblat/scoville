@@ -15,7 +15,7 @@
 #ifndef ENCODING_H_
 #define ENCODING_H_
 
-#include <sstream>
+#include <string>
 #include <stdexcept>
 
 namespace scoville {
@@ -30,9 +30,9 @@ class DecodingFailure : public std::logic_error {
   using std::logic_error::logic_error;
 };
 
-void Encode(std::istringstream*, std::ostringstream*);
+std::string Encode(const std::string&);
 
-void Decode(std::istringstream*, std::ostringstream*);
+std::string Decode(const std::string&);
 
 }  // scoville
 

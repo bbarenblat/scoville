@@ -16,9 +16,12 @@
 
 #include <array>
 #include <cstdlib>
+#include <functional>
 #include <ios>
 #include <sstream>
 #include <string>
+
+#include <glog/logging.h>
 
 namespace scoville {
 
@@ -47,12 +50,10 @@ char ReadHexAsAscii(std::istringstream* const in) {
 
 bool IsVfatBadCharacter(const char c) noexcept {
   return (0 <= c && c < 0x20) || c == '*' || c == '?' || c == '<' || c == '>' ||
-         c == '|' || c == '"' || c == ':' || c == '/' || c == '\\';
+         c == '|' || c == '"' || c == ':' || c == '\\';
 }
 
-}  // namespace
-
-void Encode(std::istringstream* const in, std::ostringstream* const out) {
+void EncodeStream(std::istringstream* const in, std::ostringstream* const out) {
   char c;
   while (!in->get(c).eof()) {
     if (IsVfatBadCharacter(c)) {
@@ -66,7 +67,7 @@ void Encode(std::istringstream* const in, std::ostringstream* const out) {
   }
 }
 
-void Decode(std::istringstream* const in, std::ostringstream* const out) {
+void DecodeStream(std::istringstream* const in, std::ostringstream* const out) {
   char c;
   while (!in->get(c).eof()) {
     if (c == '%') {
@@ -80,6 +81,29 @@ void Decode(std::istringstream* const in, std::ostringstream* const out) {
       *out << c;
     }
   }
+}
+
+std::string TransformString(
+    std::function<void(std::istringstream*, std::ostringstream*)> f,
+    const std::string& in) {
+  std::istringstream in_stream(in);
+  std::ostringstream out_stream;
+  f(&in_stream, &out_stream);
+  return out_stream.str();
+}
+
+}  // namespace
+
+std::string Encode(const std::string& in) {
+  const std::string result = TransformString(EncodeStream, in);
+  VLOG(1) << "Encode: \"" << in << "\" -> \"" << result << "\"";
+  return result;
+}
+
+std::string Decode(const std::string& in) {
+  const std::string result = TransformString(DecodeStream, in);
+  VLOG(1) << "Decode: \"" << in << "\" -> \"" << result << "\"";
+  return result;
 }
 
 }  // scoville
