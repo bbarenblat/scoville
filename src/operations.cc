@@ -235,6 +235,16 @@ int Releasedir(const char*, fuse_file_info* const file_info) {
   return ReleaseResource<Directory>(file_info->fh);
 }
 
+int Truncate(const char* const c_path, const off_t size) {
+  const std::string path(Encode(c_path));
+  if (path == "/") {
+    return -EISDIR;
+  } else {
+    root_->OpenAt(MakeRelative(path).c_str(), O_WRONLY).Truncate(size);
+    return 0;
+  }
+}
+
 int Ftruncate(const char*, const off_t size, fuse_file_info* const file_info) {
   reinterpret_cast<File*>(file_info->fh)->Truncate(size);
   return 0;
@@ -294,6 +304,7 @@ fuse_operations FuseOperations(File* const root) {
   result.write = CATCH_AND_RETURN_EXCEPTIONS(Write);
   result.utimens = CATCH_AND_RETURN_EXCEPTIONS(Utimens);
   result.release = CATCH_AND_RETURN_EXCEPTIONS(Release);
+  result.truncate = CATCH_AND_RETURN_EXCEPTIONS(Truncate);
   result.ftruncate = CATCH_AND_RETURN_EXCEPTIONS(Ftruncate);
   result.unlink = CATCH_AND_RETURN_EXCEPTIONS(Unlink);
 
