@@ -86,6 +86,9 @@ int Getattr(const char* const c_path, struct stat* output) {
 
 int Fgetattr(const char*, struct stat* const output,
              struct fuse_file_info* const file_info) {
+  // This reinterpret_cast violates type aliasing rules, so a compiler may
+  // invoke undefined behavior if *output is ever dereferenced.  However, we
+  // compile with -fno-strict-aliasing, so this should be safe.
   *output = reinterpret_cast<File*>(file_info->fh)->Stat();
   return 0;
 }
@@ -152,6 +155,9 @@ int Open(const char* const path, fuse_file_info* const file_info) {
 
 int Read(const char*, char* const buffer, const size_t bytes,
          const off_t offset, fuse_file_info* const file_info) {
+  // This reinterpret_cast violates type aliasing rules, so a compiler may
+  // invoke undefined behavior when file is dereferenced on the next line.
+  // However, we compile with -fno-strict-aliasing, so it should be safe.
   auto* const file = reinterpret_cast<File*>(file_info->fh);
   const std::vector<std::uint8_t> read = file->Read(offset, bytes);
   std::memcpy(buffer, read.data(), read.size());
@@ -160,6 +166,7 @@ int Read(const char*, char* const buffer, const size_t bytes,
 
 int Write(const char*, const char* const buffer, const size_t bytes,
           const off_t offset, fuse_file_info* const file_info) {
+  // See notes in Read about undefined behavior.
   auto* const file = reinterpret_cast<File*>(file_info->fh);
   const std::vector<std::uint8_t> to_write(buffer, buffer + bytes);
   file->Write(offset, to_write);
@@ -209,6 +216,7 @@ int Opendir(const char* const path, fuse_file_info* const file_info) {
 
 int Readdir(const char*, void* const buffer, fuse_fill_dir_t filler,
             const off_t offset, fuse_file_info* const file_info) {
+  // See notes in Read about undefined behavior.
   auto* const directory = reinterpret_cast<Directory*>(file_info->fh);
 
   static_assert(std::is_same<off_t, long>(),
@@ -246,6 +254,7 @@ int Truncate(const char* const c_path, const off_t size) {
 }
 
 int Ftruncate(const char*, const off_t size, fuse_file_info* const file_info) {
+  // See notes in Read about undefined behavior.
   reinterpret_cast<File*>(file_info->fh)->Truncate(size);
   return 0;
 }
