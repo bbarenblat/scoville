@@ -1,4 +1,4 @@
-// Copyright 2016 Benjamin Barenblat
+// Copyright 2016, 2018 Benjamin Barenblat
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License.  You may obtain a copy
@@ -53,10 +53,18 @@ bool IsVfatBadCharacter(const char c) noexcept {
          c == '|' || c == '"' || c == ':' || c == '\\';
 }
 
+bool IsVfatBadLastCharacter(const char c) noexcept {
+  return IsVfatBadCharacter(c) || c == '.' || c == ' ';
+}
+
 void EncodeStream(std::istringstream* const in, std::ostringstream* const out) {
   char c;
   while (!in->get(c).eof()) {
-    if (IsVfatBadCharacter(c)) {
+    in->peek();
+    const bool processing_last_character = in->eof();
+
+    if (IsVfatBadCharacter(c) ||
+        (processing_last_character && IsVfatBadLastCharacter(c))) {
       *out << '%';
       WriteAsciiAsHex(c, out);
     } else if (c == '%') {
