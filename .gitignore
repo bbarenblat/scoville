@@ -3,10 +3,10 @@
 \#*
 .\#*
 
-# CMake
-Debug/
-Release/
-
+# Ninja
+.ninja_*
+*.o
+scoville
 
 # Local Variables:
 # mode: conf
