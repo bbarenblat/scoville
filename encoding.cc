@@ -14,39 +14,20 @@
 
 #include "encoding.h"
 
-#include <array>
-#include <cstdlib>
-#include <functional>
-#include <ios>
-#include <sstream>
-#include <string>
-
+#include <absl/strings/escaping.h>
+#include <absl/strings/str_cat.h>
+#include <absl/strings/str_join.h>
+#include <absl/strings/str_split.h>
+#include <absl/strings/string_view.h>
 #include <glog/logging.h>
+
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace scoville {
 
 namespace {
-
-void WriteAsciiAsHex(const char c, std::ostringstream* const out) {
-  if (1 < sizeof(c) && 0x100 <= c) {
-    // Not ASCII!
-    throw EncodingFailure("could not encode non-ASCII character '" +
-                          std::string(1, c) + "'");
-  }
-  *out << std::hex << static_cast<int>(c);
-}
-
-char ReadHexAsAscii(std::istringstream* const in) {
-  std::array<char, 3> hex_str;
-  in->get(hex_str.data(), hex_str.size());
-  char* decoded_end;
-  const char result =
-      static_cast<char>(std::strtol(hex_str.data(), &decoded_end, 16));
-  if (decoded_end == hex_str.data()) {
-    throw DecodingFailure("could not decode invalid hex");
-  }
-  return result;
-}
 
 bool IsVfatBadCharacter(const char c) noexcept {
   return (0 <= c && c < 0x20) || c == '*' || c == '?' || c == '<' || c == '>' ||
@@ -57,61 +38,77 @@ bool IsVfatBadLastCharacter(const char c) noexcept {
   return IsVfatBadCharacter(c) || c == '.' || c == ' ';
 }
 
-void EncodeStream(std::istringstream* const in, std::ostringstream* const out) {
-  char c;
-  while (!in->get(c).eof()) {
-    in->peek();
-    const bool processing_last_character = in->eof();
-
-    if (IsVfatBadCharacter(c) ||
-        (processing_last_character && IsVfatBadLastCharacter(c))) {
-      *out << '%';
-      WriteAsciiAsHex(c, out);
-    } else if (c == '%') {
-      *out << "%%";
-    } else {
-      *out << c;
-    }
-  }
+bool IsValidHex(const char c) noexcept {
+  return ('0' <= c && c <= '9') || ('A' <= c && c <= 'F') ||
+         ('a' <= c && c <= 'f');
 }
 
-void DecodeStream(std::istringstream* const in, std::ostringstream* const out) {
-  char c;
-  while (!in->get(c).eof()) {
-    if (c == '%') {
-      if (in->peek() == '%') {
-        in->ignore();
-        *out << "%";
-      } else {
-        *out << ReadHexAsAscii(in);
-      }
+std::string EncodeComponent(absl::string_view in) {
+  std::string out;
+  for (size_t i = 0; i < in.size(); ++i) {
+    absl::string_view c(in.data() + i, 1);
+    if (in[i] == '%') {
+      absl::StrAppend(&out, "%%");
+    } else if (IsVfatBadCharacter(in[i]) ||
+               (i == in.size() - 1 && IsVfatBadLastCharacter(in[i]))) {
+      absl::StrAppend(&out, "%", absl::BytesToHexString(c));
     } else {
-      *out << c;
+      absl::StrAppend(&out, c);
     }
   }
-}
-
-std::string TransformString(
-    std::function<void(std::istringstream*, std::ostringstream*)> f,
-    const std::string& in) {
-  std::istringstream in_stream(in);
-  std::ostringstream out_stream;
-  f(&in_stream, &out_stream);
-  return out_stream.str();
+  return out;
 }
 
 }  // namespace
 
 std::string Encode(const std::string& in) {
-  const std::string result = TransformString(EncodeStream, in);
+  std::vector<std::string> out;
+  for (auto component : absl::StrSplit(in, '/')) {
+    out.push_back(EncodeComponent(component));
+  }
+  std::string result = absl::StrJoin(out, "/");
   VLOG(1) << "Encode: \"" << in << "\" -> \"" << result << "\"";
   return result;
 }
 
 std::string Decode(const std::string& in) {
-  const std::string result = TransformString(DecodeStream, in);
-  VLOG(1) << "Decode: \"" << in << "\" -> \"" << result << "\"";
+  std::string result;
+  for (size_t i = 0; i < in.size(); ++i) {
+    if (in[i] != '%') {
+      // This isn't an escaped byte.
+      absl::StrAppend(&result, absl::string_view(in.data() + i, 1));
+      continue;
+    }
+
+    char x, y;
+
+    // Decode single-byte escapes. There's only one of these ("%%" -> "%").
+    try {
+      x = in.at(i + 1);
+    } catch (std::out_of_range&) {
+      throw DecodingFailure("clipped escape at end of string");
+    }
+    if (x == '%') {
+      absl::StrAppend(&result, "%");
+      ++i;
+      continue;
+    }
+
+    // Decode double-byte escapes.
+    try {
+      y = in.at(i + 2);
+    } catch (std::out_of_range&) {
+      throw DecodingFailure("clipped escape at end of string");
+    }
+    if (!(IsValidHex(x) && IsValidHex(y))) {
+      throw DecodingFailure("clipped escape at end of string");
+    }
+    absl::StrAppend(&result, absl::HexStringToBytes(
+                                 absl::string_view(in.c_str() + i + 1, 2)));
+    i += 2;
+  }
   return result;
+  VLOG(1) << "Decode: \"" << in << "\" -> \"" << result << "\"";
 }
 
-}  // scoville
+}  // namespace scoville

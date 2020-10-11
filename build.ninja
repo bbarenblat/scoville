@@ -39,6 +39,6 @@ build posix_extras.o: cxx posix_extras.cc
 build scoville.o: cxx scoville.cc
 
 build encoding_test: link encoding.o encoding_test.o
-  libs = -lgtest -lgtest_main -labsl_str_format_internal -lglog
+  libs = -lgtest -lgtest_main -lglog -labsl_str_format_internal -labsl_strings -labsl_throw_delegate
 build scoville: link encoding.o operations.o posix_extras.o scoville.o
-  libs = -lfuse -lglog -lgflags
+  libs = -lfuse -lglog -lgflags -labsl_strings -labsl_throw_delegate

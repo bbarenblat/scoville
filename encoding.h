@@ -20,11 +20,6 @@
 
 namespace scoville {
 
-class EncodingFailure : public std::logic_error {
- public:
-  using std::logic_error::logic_error;
-};
-
 class DecodingFailure : public std::logic_error {
  public:
   using std::logic_error::logic_error;
