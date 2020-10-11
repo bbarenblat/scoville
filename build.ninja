@@ -21,7 +21,6 @@ cflags = -O2 -DNDEBUG -D_FORTIFY_SOURCE -D_GLIBCXX_DEBUG $
     -fno-rtti -fuse-cxa-atexit -pipe -ffunction-sections -fdata-sections $
     -D_FILE_OFFSET_BITS=64 -I/usr/include/fuse
 ldflags = -Wl,--gc-sections -Wl,-Bsymbolic-functions -pie -Wl,-z,now -Wl,-z,relro -Wl,--hash-style=gnu -Wl,--no-copy-dt-needed-entries -Wl,--as-needed -pthread
-libs = -lfuse -lglog -lgflags
 
 rule cxx
   command = $cxx -MMD -MT $out -MF $out.d $cflags -c $in -o $out
@@ -34,8 +33,12 @@ rule link
   description = LINK $out
 
 build encoding.o: cxx encoding.cc
+build encoding_test.o: cxx encoding_test.cc
 build operations.o: cxx operations.cc
 build posix_extras.o: cxx posix_extras.cc
 build scoville.o: cxx scoville.cc
 
+build encoding_test: link encoding.o encoding_test.o
+  libs = -lgtest -lgtest_main -labsl_str_format_internal -lglog
 build scoville: link encoding.o operations.o posix_extras.o scoville.o
+  libs = -lfuse -lglog -lgflags
